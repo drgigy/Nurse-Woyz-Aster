@@ -2814,6 +2814,11 @@ let continuationState = {
   position:null,
   cancelNewDraft:false
 };
+let scannerInputTimer = null;
+let scannerKeyBuffer = '';
+let scannerKeyTimer = null;
+let lastHandledScannerSignature = '';
+let lastHandledScannerAt = 0;
 
 const MANUAL_NOTE_TEMPLATE = `Patient Name: 
 Age: 
@@ -2881,6 +2886,74 @@ To,
 
 
 Thank you`;
+
+function normalizeScannerText(value){
+  return String(value || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n+/g, '\n')
+    .trim();
+}
+
+function compactScannerText(value){
+  return normalizeScannerText(value).replace(/\s+/g, ' ').trim();
+}
+
+function normalizeScannedName(value){
+  return String(value || '')
+    .replace(/^(?:Mr|Mrs|Ms|Miss|Master|Baby)\.?\s+/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, char => char.toUpperCase());
+}
+
+function normalizeScannedSex(value){
+  const text = String(value || '').trim().toLowerCase();
+  if (text === 'm' || text === 'male') return 'Male';
+  if (text === 'f' || text === 'female') return 'Female';
+  return value ? cleanSex(value) : 'NIL';
+}
+
+function parseAsterScanText(value){
+  const raw = normalizeScannerText(value);
+  const text = compactScannerText(raw);
+  if (!/(?:Aster\s*ID|IP\s*No)\s*:/i.test(text)) return null;
+  const ipNo = text.match(/\bIP\s*No\s*:?\s*([A-Za-z0-9/-]+)/i)?.[1] || '';
+  const asterId = text.match(/\bAster\s*ID\s*:?\s*([A-Za-z0-9/-]+)/i)?.[1] || '';
+  if (!asterId && !ipNo) return null;
+  const afterAster = asterId
+    ? text.slice(text.search(new RegExp(`Aster\\s*ID\\s*:?\\s*${escapeRegExp(asterId)}`, 'i'))).replace(new RegExp(`^Aster\\s*ID\\s*:?\\s*${escapeRegExp(asterId)}\\s*`, 'i'), '')
+    : text;
+  const patientMatch = afterAster.match(/((?:(?:Mr|Mrs|Ms|Miss|Master|Baby)\.?\s*)?[A-Za-z][A-Za-z .'-]*?)\s+(\d{1,3})\s*(?:Yrs?|Years?)\s*\/\s*(Male|Female|M|F)\b/i);
+  const name = normalizeScannedName(patientMatch?.[1] || '');
+  const age = cleanAge(patientMatch?.[2] || '');
+  const sex = normalizeScannedSex(patientMatch?.[3] || '');
+  let afterDemographics = patientMatch ? afterAster.slice((patientMatch.index || 0) + patientMatch[0].length).trim() : '';
+  const doctorMatch = afterDemographics.match(/\bDr\.?\s*(.+)$/i);
+  const doctor = doctorMatch ? doctorMatch[1].trim().replace(/\s+/g, ' ') : '';
+  const location = (doctorMatch ? afterDemographics.slice(0, doctorMatch.index).trim() : afterDemographics)
+    .replace(/[;,]+$/g, '')
+    .trim();
+  if (!name && !asterId && !ipNo) return null;
+  return {
+    rawText:raw,
+    visitType:ipNo ? 'IP' : 'OP',
+    ipNo,
+    asterId,
+    location,
+    doctor,
+    patientData:{
+      name:name || 'NIL',
+      age:age || 'NIL',
+      uhid:asterId || ipNo || 'NIL',
+      sex:sex || 'NIL',
+      asterId:asterId || '',
+      ipNo:ipNo || '',
+      location,
+      doctor
+    }
+  };
+}
 
 function renderEntries(){
   if (searchScope === 'all'){
@@ -7349,6 +7422,115 @@ async function createVoiceDraft(mode = null){
   });
 }
 
+function scannerSignature(scan){
+  return [scan?.visitType, scan?.ipNo, scan?.asterId, scan?.patientData?.name, scan?.patientData?.age, scan?.patientData?.sex].join('|').toLowerCase();
+}
+
+function scannerPatientKey(scan){
+  return patientSearchKey({patientData:scan.patientData});
+}
+
+function scannedRecordMatches(record, scan){
+  if (!record || record.isDeleted) return false;
+  const identity = patientIdentity(record);
+  const scanKey = scannerPatientKey(scan);
+  return Boolean(
+    scanKey && patientSearchKey(record) === scanKey
+    || (scan.asterId && String(identity.uhid || '').trim() === scan.asterId)
+    || (scan.ipNo && String(record.patientData?.ipNo || record.ipNo || '').trim() === scan.ipNo)
+  );
+}
+
+function openScannedExistingRecord(record){
+  if (!record) return false;
+  setSearchScope('today');
+  selectedVisitType = noteVisitType(record);
+  updateVisitToggle();
+  if (record.isDraft) return selectExistingDraftRecord(record);
+  if (selectedVisitType === 'IP') return openIpTimelineForRecord(record);
+  return openOpTimelineForRecord(record);
+}
+
+async function createScannedVoiceDraft(scan){
+  if (!currentUser) return null;
+  return withDraftCreationLock(async () => {
+    const requestedVisitType = scan.visitType === 'IP' ? 'IP' : 'OP';
+    const today = new Date();
+    selectedVisitDate = today;
+    selectedVisitType = requestedVisitType;
+    updateVisitToggle();
+    const selectedDateString = dateInputValue(selectedVisitDate);
+    const createdAt = today.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) + ', ' + today.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const patientData = patientDataWithFallback(scan.patientData);
+    patientData.asterId = scan.asterId || '';
+    patientData.ipNo = scan.ipNo || '';
+    patientData.location = scan.location || '';
+    patientData.doctor = scan.doctor || '';
+    const newDraftRef = doc(userNotesCollection());
+    const draftData = {
+      heading:'Visit Note draft',
+      createdAt:null,
+      createdAtLabel:createdAt,
+      visitDate:selectedDateString,
+      visitType:requestedVisitType,
+      admissionDate:requestedVisitType === 'IP' ? selectedDateString : null,
+      isDraft:true,
+      everSaved:false,
+      saved:false,
+      kind:'generated',
+      voiceDraft:true,
+      recording:false,
+      hasStarted:false,
+      selectedMode:null,
+      status:'Ready to record',
+      transcription:'',
+      patientData,
+      sourcePatientKey:scannerPatientKey({...scan, patientData}),
+      scannedFrom:'aster-qr',
+      scannedText:scan.rawText || ''
+    };
+    pendingSelectId = newDraftRef.id;
+    pendingNewVoiceDockId = newDraftRef.id;
+    clearTimelineSelection();
+    remainingSeconds = 300;
+    selectLocalDraftFromSnapshot({id:newDraftRef.id,data:()=>draftData});
+    setSearchScope('today');
+    closeMobileSidebar();
+    openNewVoiceDock();
+    try{
+      await setDoc(newDraftRef,{...draftData,createdAt:serverTimestamp()},{merge:true});
+      subscribeToSelectedDate();
+    }catch(error){
+      console.error('Scanned patient draft save failed:', error);
+      window.alert('The scanned patient entry opened locally, but saving is pending. Please check the connection.');
+    }
+    return draftData;
+  });
+}
+
+async function handleAsterScannerText(value, {clearSearch = false} = {}){
+  const scan = parseAsterScanText(value);
+  if (!scan || !currentUser) return false;
+  const signature = scannerSignature(scan);
+  if (signature && signature === lastHandledScannerSignature && Date.now() - lastHandledScannerAt < 2500) return true;
+  lastHandledScannerSignature = signature;
+  lastHandledScannerAt = Date.now();
+  const allCandidates = [...records, ...allRecords];
+  const samePatient = allCandidates.find(record => scannedRecordMatches(record, scan));
+  if (samePatient && openScannedExistingRecord(samePatient)){
+    closeMobileSidebar();
+  }else{
+    await createScannedVoiceDraft(scan);
+  }
+  if (clearSearch){
+    recordSearchInput.textContent = '';
+    recordSearchTerm = '';
+    updateRecordSearchPlaceholder();
+    renderEntries();
+  }
+  return true;
+}
+
 async function createManualDraft(){
   if (!currentUser) return;
   return withDraftCreationLock(async () => {
@@ -7619,6 +7801,10 @@ recordSearchInput.addEventListener('input', () => {
   recordSearchTerm = recordSearchInput.textContent || '';
   updateRecordSearchPlaceholder();
   renderEntries();
+  clearTimeout(scannerInputTimer);
+  scannerInputTimer = setTimeout(() => {
+    handleAsterScannerText(recordSearchInput.textContent || '', {clearSearch:true}).catch(error => console.error('Aster scanner handling failed:', error));
+  }, 280);
   if (searchScope === 'all' && !selectedTimelineKey){
     mainScroll.innerHTML = '<div class="empty-state"><div class="empty-title">Search all patients</div><div class="empty-sub">Select a patient to view previous records.</div></div>';
   }
@@ -7637,10 +7823,31 @@ recordSearchInput.addEventListener('keydown', event => {
 });
 recordSearchInput.addEventListener('paste', event => {
   event.preventDefault();
-  document.execCommand('insertText', false, event.clipboardData?.getData('text/plain') || '');
+  const pastedText = event.clipboardData?.getData('text/plain') || '';
+  document.execCommand('insertText', false, pastedText);
+  handleAsterScannerText(pastedText, {clearSearch:true}).catch(error => console.error('Aster scanner paste handling failed:', error));
   requestAnimationFrame(updateRecordSearchPlaceholder);
 });
 updateRecordSearchPlaceholder();
+document.addEventListener('keydown', event => {
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.key === 'Enter'){
+    const buffered = scannerKeyBuffer;
+    scannerKeyBuffer = '';
+    clearTimeout(scannerKeyTimer);
+    handleAsterScannerText(buffered, {clearSearch:true}).catch(error => console.error('Aster scanner key handling failed:', error));
+    return;
+  }
+  if (event.key.length !== 1) return;
+  scannerKeyBuffer += event.key;
+  if (scannerKeyBuffer.length > 500) scannerKeyBuffer = scannerKeyBuffer.slice(-500);
+  clearTimeout(scannerKeyTimer);
+  scannerKeyTimer = setTimeout(() => {
+    const buffered = scannerKeyBuffer;
+    scannerKeyBuffer = '';
+    handleAsterScannerText(buffered, {clearSearch:true}).catch(error => console.error('Aster scanner key handling failed:', error));
+  }, 450);
+});
 searchScopeToggle.addEventListener('click', event => {
   const button = event.target.closest('[data-search-scope]');
   if (!button) return;

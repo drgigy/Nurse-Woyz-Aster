@@ -63,6 +63,10 @@ After the script completes:
 
 Email UI remains in the user app, but sending is disabled because the original cloud function belonged to the old project. Configure a new Nurse WOYZ email backend before enabling `EMAIL_FUNCTION_URL` and `EMAIL_BACKEND_CONFIG` in `user.html`.
 
+## Aster QR/OCR Intake
+
+On `user.html`, scanner text containing `IP No:` or `AsterID:` is detected from the record search field or scanner-style keyboard input. The app parses the patient details, opens an existing matching entry when available, or creates a new IP voice draft for nurse dictation.
+
 ## Checks
 
 Before publishing after edits, run:
