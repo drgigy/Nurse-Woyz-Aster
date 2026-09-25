@@ -6,7 +6,7 @@ Nurse WOYZ is a standalone clone of the WOYZ notes app, adapted for nurse-facing
 - `admin.html`: admin/worklist page for mapped nurse groups.
 - `master-admin.html`: master admin page for creating groups and assigning admin access.
 
-The project is intentionally disconnected from the original WOYZ Firebase project, email backend, CNAME, and GitHub repository.
+The project is intentionally disconnected from the original WOYZ Firebase project, email backend, CNAME, and old GitHub repositories. It is currently pointed at the renamed Firebase project **Nurse WOYZ Aster** with project ID `rajagiri-neurology`.
 
 ## Firebase Data Model
 
@@ -20,7 +20,9 @@ Each signed-in Firebase Authentication user owns their notes. Admin and group ac
 
 ## Create New Infrastructure
 
-Use `setup-new-project.sh` only from a standalone copy of this folder that is not inside another Git repository. The script creates:
+The app is already configured for the existing Firebase project `rajagiri-neurology`, whose display name has been renamed to **Nurse WOYZ Aster**. Firestore and Authentication can be configured later.
+
+Use `setup-new-project.sh` only if you later decide to create a completely separate Firebase project and GitHub repository from a standalone copy of this folder that is not inside another Git repository. The script creates:
 
 - a new GitHub repository named `Nurse-Woyz-Aster`;
 - a new Firebase project with display name `Nurse WOYZ`;

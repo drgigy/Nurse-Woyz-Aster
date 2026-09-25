@@ -1,8 +1,9 @@
 export const firebaseConfig = {
-  apiKey: "REPLACE_WITH_NEW_FIREBASE_WEB_API_KEY",
-  authDomain: "REPLACE_WITH_NEW_FIREBASE_PROJECT_ID.firebaseapp.com",
-  projectId: "REPLACE_WITH_NEW_FIREBASE_PROJECT_ID",
-  storageBucket: "REPLACE_WITH_NEW_FIREBASE_PROJECT_ID.firebasestorage.app",
-  messagingSenderId: "REPLACE_WITH_NEW_FIREBASE_MESSAGING_SENDER_ID",
-  appId: "REPLACE_WITH_NEW_FIREBASE_WEB_APP_ID"
+  apiKey: "AIzaSyA3XVoO4tvJIohKRocjyG6YTEa6LYd85Vk",
+  authDomain: "rajagiri-neurology.firebaseapp.com",
+  databaseURL: "https://rajagiri-neurology-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "rajagiri-neurology",
+  storageBucket: "rajagiri-neurology.firebasestorage.app",
+  messagingSenderId: "323464032956",
+  appId: "1:323464032956:web:3ed806abdbcc739d6f16b9"
 };
