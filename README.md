@@ -22,6 +22,8 @@ Each signed-in Firebase Authentication user owns their notes. Admin and group ac
 
 The app is already configured for the existing Firebase project `rajagiri-neurology`, whose display name has been renamed to **Nurse WOYZ Aster**. Firestore and Authentication can be configured later.
 
+Master admin access is controlled by private Firestore documents at `masterAdmins/{firebaseAuthUid}`. Do not hardcode master-admin emails or UIDs into public client files.
+
 Use `setup-new-project.sh` only if you later decide to create a completely separate Firebase project and GitHub repository from a standalone copy of this folder that is not inside another Git repository. The script creates:
 
 - a new GitHub repository named `Nurse-Woyz-Aster`;
@@ -31,16 +33,16 @@ Use `setup-new-project.sh` only if you later decide to create a completely separ
 - a new `.firebaserc`;
 - a first Git commit and push.
 
-Run it with the new master admin email:
+Run it from the project folder:
 
 ```bash
-MASTER_ADMIN_EMAIL="master@example.com" ./setup-new-project.sh
+./setup-new-project.sh
 ```
 
 Optional overrides:
 
 ```bash
-GITHUB_VISIBILITY=public FIRESTORE_LOCATION=asia-south1 MASTER_ADMIN_EMAIL="master@example.com" ./setup-new-project.sh
+GITHUB_VISIBILITY=public FIRESTORE_LOCATION=asia-south1 ./setup-new-project.sh
 ```
 
 The script refuses to reuse an existing GitHub repository or Firebase project.
@@ -50,10 +52,11 @@ The script refuses to reuse an existing GitHub repository or Firebase project.
 After the script completes:
 
 1. Enable **Email/Password** in Firebase Authentication.
-2. Create the master admin account using the same email passed as `MASTER_ADMIN_EMAIL`.
-3. Create nurse/user accounts in Firebase Authentication.
-4. If using GitHub Pages, add the GitHub Pages hostname to Authentication authorized domains.
-5. Enable GitHub Pages or deploy with Firebase Hosting.
+2. Create the master admin account in Firebase Authentication.
+3. Create a private Firestore marker document at `masterAdmins/{firebaseAuthUid}` for the master admin user.
+4. Create nurse/user accounts in Firebase Authentication.
+5. If using GitHub Pages, add the GitHub Pages hostname to Authentication authorized domains.
+6. Enable GitHub Pages or deploy with Firebase Hosting.
 
 ## Email Sending
 

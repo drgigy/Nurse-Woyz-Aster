@@ -8,7 +8,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return request.auth != null
-        && request.auth.token.email == "REPLACE_WITH_MASTER_ADMIN_EMAIL";
+        && exists(/databases/$(database)/documents/masterAdmins/$(request.auth.uid));
     }
 
     function sharedWith(userId) {
@@ -40,6 +40,11 @@ service cloud.firestore {
         "mappingUpdatedAt",
         "mappingUpdatedBy"
       ];
+    }
+
+    match /masterAdmins/{adminUid} {
+      allow read: if signedInAs(adminUid);
+      allow create, update, delete: if false;
     }
 
     match /users/{userId} {

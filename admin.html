@@ -281,8 +281,6 @@ import { browserLocalPersistence, getAuth, onAuthStateChanged, setPersistence, s
 import { getFirestore, collection, collectionGroup, doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
-const MASTER_ADMIN_EMAIL = 'REPLACE_WITH_MASTER_ADMIN_EMAIL';
-
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const authPersistenceReady = setPersistence(auth, browserLocalPersistence).catch(error => {
@@ -1244,7 +1242,17 @@ loginForm.addEventListener('submit', async event => {
   }
 });
 
-onAuthStateChanged(auth, user => {
+async function isMasterAdmin(user){
+  if (!user) return false;
+  try{
+    return (await getDoc(doc(db,'masterAdmins',user.uid))).exists();
+  }catch(error){
+    console.warn('Unable to verify master admin access:', error);
+    return false;
+  }
+}
+
+onAuthStateChanged(auth, async user => {
   if (notesUnsubscribe) notesUnsubscribe();
   if (profilesUnsubscribe) profilesUnsubscribe();
   clearScopedSubscriptions();
@@ -1261,7 +1269,7 @@ onAuthStateChanged(auth, user => {
     userEmail.textContent = '';
     return;
   }
-  if (String(user.email || '').toLowerCase() === MASTER_ADMIN_EMAIL){
+  if (await isMasterAdmin(user)){
     setDoc(doc(db,'users',user.uid),{
       email:user.email || '',
       emailUpdatedAt:serverTimestamp()

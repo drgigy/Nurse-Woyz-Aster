@@ -115,10 +115,8 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
 import { browserLocalPersistence, getAuth, onAuthStateChanged, setPersistence, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
-import { addDoc, collection, deleteDoc, doc, getFirestore, onSnapshot, serverTimestamp, setDoc } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
+import { addDoc, collection, deleteDoc, doc, getDoc, getFirestore, onSnapshot, serverTimestamp, setDoc } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
-
-const MASTER_ADMIN_EMAIL = 'REPLACE_WITH_MASTER_ADMIN_EMAIL';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -290,7 +288,17 @@ loginForm.addEventListener('submit', async event => {
   }
 });
 
-onAuthStateChanged(auth, user => {
+async function isMasterAdmin(user){
+  if (!user) return false;
+  try{
+    return (await getDoc(doc(db,'masterAdmins',user.uid))).exists();
+  }catch(error){
+    console.warn('Unable to verify master admin access:', error);
+    return false;
+  }
+}
+
+onAuthStateChanged(auth, async user => {
   if (usersUnsubscribe) usersUnsubscribe();
   if (groupsUnsubscribe) groupsUnsubscribe();
   usersUnsubscribe = null;
@@ -303,7 +311,7 @@ onAuthStateChanged(auth, user => {
     userEmail.textContent = '';
     return;
   }
-  if (normalizeEmail(user.email) !== MASTER_ADMIN_EMAIL){
+  if (!(await isMasterAdmin(user))){
     appShell.classList.remove('authenticated');
     loginScreen.classList.remove('hidden');
     userEmail.textContent = '';

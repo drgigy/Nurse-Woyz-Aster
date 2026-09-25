@@ -9,7 +9,6 @@ DISPLAY_NAME="Nurse WOYZ"
 GITHUB_VISIBILITY="${GITHUB_VISIBILITY:-private}"
 FIRESTORE_LOCATION="${FIRESTORE_LOCATION:-asia-south1}"
 PROJECT_ID="${FIREBASE_PROJECT_ID:-nurse-woyz-aster-$(date -u +%Y%m%d%H%M%S)-$(printf '%04x' "$((RANDOM % 65536))")}"
-MASTER_ADMIN_EMAIL="${MASTER_ADMIN_EMAIL:-}"
 
 fail() {
   echo "ERROR: $*" >&2
@@ -24,8 +23,6 @@ case "$GITHUB_VISIBILITY" in
   public|private|internal) ;;
   *) fail "GITHUB_VISIBILITY must be public, private, or internal." ;;
 esac
-
-[[ "$MASTER_ADMIN_EMAIL" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$ ]] || fail "Set MASTER_ADMIN_EMAIL to the new Nurse WOYZ master admin email before running."
 
 [[ -f index.html ]] || fail "Run this script from the extracted handover folder."
 [[ -f firestore.rules ]] || fail "firestore.rules is missing."
@@ -62,21 +59,10 @@ echo "GitHub:   $GITHUB_OWNER/$REPO_NAME ($GITHUB_VISIBILITY)"
 echo "Firebase: $DISPLAY_NAME"
 echo "Project:  $PROJECT_ID"
 echo "Firestore location: $FIRESTORE_LOCATION"
-echo "Master admin email: $MASTER_ADMIN_EMAIL"
 echo
 echo "No existing GitHub repository or Firebase project will be selected, reused, renamed, or modified."
 read -r -p 'Type CREATE NEW NURSE WOYZ to continue: ' confirmation
 [[ "$confirmation" == "CREATE NEW NURSE WOYZ" ]] || fail "Confirmation did not match. Nothing was changed."
-
-echo "Writing the new master admin email into app checks and Firestore rules..."
-node -e '
-const fs = require("fs");
-const email = process.argv[1].toLowerCase();
-for (const file of ["admin.html", "master-admin.html", "firestore.rules"]) {
-  const text = fs.readFileSync(file, "utf8").replaceAll("REPLACE_WITH_MASTER_ADMIN_EMAIL", email);
-  fs.writeFileSync(file, text);
-}
-' "$MASTER_ADMIN_EMAIL"
 
 echo "Creating a new local Git repository..."
 git init -b main
@@ -144,5 +130,6 @@ echo
 echo "Next manual steps:"
 echo "1. Enable Email/Password in Firebase Authentication."
 echo "2. Create the required users in Firebase Authentication."
-echo "3. If using GitHub Pages, add $GITHUB_OWNER.github.io to Authentication > Authorized domains."
-echo "4. Enable GitHub Pages for the repository if desired."
+echo "3. Create a private Firestore marker document at masterAdmins/{MASTER_ADMIN_UID} for the master admin user."
+echo "4. If using GitHub Pages, add $GITHUB_OWNER.github.io to Authentication > Authorized domains."
+echo "5. Enable GitHub Pages for the repository if desired."
