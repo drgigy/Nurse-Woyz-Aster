@@ -1908,22 +1908,24 @@
     .sidebar .search-scope-toggle,
     .sidebar > .privacy-row{ display:none !important; }
     .mobile-scan-capture.active{
-      left:50%;
-      bottom:calc(18px + env(safe-area-inset-bottom));
-      transform:translateX(-50%);
-      width:min(280px,78vw);
-      height:48px;
-      opacity:.02;
+      left:0;
+      right:0;
+      bottom:0;
+      width:100vw;
+      height:96px;
+      opacity:.03;
       pointer-events:auto;
       z-index:64;
       border:0;
-      border-radius:12px;
+      border-radius:0;
       background:#fff;
       color:transparent;
       caret-color:transparent;
       font-size:16px;
       resize:none;
       outline:none;
+      appearance:none;
+      -webkit-appearance:none;
     }
     .main-scroll{
       flex:1;
@@ -2327,7 +2329,7 @@
         <div class="empty-sub">Press the device OCR button and scan the Aster QR to open or create today&apos;s patient entry.</div>
       </div>
     </div>
-    <textarea class="mobile-scan-capture" id="mobileScanCapture" inputmode="none" enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="OCR scan capture"></textarea>
+    <textarea class="mobile-scan-capture" id="mobileScanCapture" autofocus enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="OCR scan capture"></textarea>
   </main>
 
   <nav class="mobile-bottom-actions hidden" id="mobileBottomActions" aria-label="Note actions">
@@ -2875,6 +2877,7 @@ let scannerKeyBuffer = '';
 let scannerKeyTimer = null;
 let lastHandledScannerSignature = '';
 let lastHandledScannerAt = 0;
+let mobileScannerFocusTimer = null;
 
 const MANUAL_NOTE_TEMPLATE = `Patient Name: 
 Age: 
@@ -4338,9 +4341,38 @@ function focusMobileScanCapture({clear = false} = {}){
   }, 120);
 }
 
+function shouldKeepMobileScannerFocused(){
+  if (!isMobileViewport() || !mobileHomeDefaultActive || !mobileScanCapture) return false;
+  if (appShell.classList.contains('sidebar-open')) return false;
+  return !authModal.classList.contains('open')
+    && !credentialModal.classList.contains('open')
+    && !emailModal.classList.contains('open')
+    && !trashModal.classList.contains('open')
+    && !layoutModal.classList.contains('open')
+    && !mmseModal.classList.contains('open');
+}
+
+function startMobileScannerFocusLoop(){
+  if (mobileScannerFocusTimer || !shouldKeepMobileScannerFocused()) return;
+  mobileScannerFocusTimer = setInterval(() => {
+    if (!shouldKeepMobileScannerFocused()){
+      stopMobileScannerFocusLoop();
+      return;
+    }
+    if (document.activeElement !== mobileScanCapture) focusMobileScanCapture();
+  }, 800);
+}
+
+function stopMobileScannerFocusLoop(){
+  if (!mobileScannerFocusTimer) return;
+  clearInterval(mobileScannerFocusTimer);
+  mobileScannerFocusTimer = null;
+}
+
 function armMobileHomeScanner({clear = false} = {}){
   if (!isMobileViewport() || !mobileHomeDefaultActive) return;
   focusMobileScanCapture({clear});
+  startMobileScannerFocusLoop();
 }
 
 function closeMobileSidebar(){
@@ -4350,6 +4382,7 @@ function closeMobileSidebar(){
 }
 
 function openMobileSidebar(){
+  stopMobileScannerFocusLoop();
   forceMobileTodayScope({reload:true});
   appShell.classList.add('sidebar-open');
 }
@@ -4825,6 +4858,7 @@ function removeNilSectionsForCopy(text){
 function selectEntry(i,{preserveDirtyEditor = false} = {}){
   mobileHomeDefaultPending = false;
   mobileHomeDefaultActive = false;
+  stopMobileScannerFocusLoop();
   activeIndex = i;
   selectedOpTimelineKey = null;
   selectedOpTimelineEntryId = 'all';
@@ -7557,6 +7591,8 @@ function scannedRecordMatches(record, scan){
 
 function openScannedExistingRecord(record){
   if (!record) return false;
+  mobileHomeDefaultActive = false;
+  stopMobileScannerFocusLoop();
   setSearchScope('today');
   selectedVisitType = noteVisitType(record);
   updateVisitToggle();
@@ -7606,6 +7642,8 @@ async function createScannedVoiceDraft(scan){
     pendingSelectId = newDraftRef.id;
     pendingNewVoiceDockId = newDraftRef.id;
     clearTimelineSelection();
+    mobileHomeDefaultActive = false;
+    stopMobileScannerFocusLoop();
     remainingSeconds = 300;
     selectLocalDraftFromSnapshot({id:newDraftRef.id,data:()=>draftData});
     setSearchScope('today');
