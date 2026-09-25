@@ -1340,6 +1340,17 @@
   .home-tools-wrap{
     display:none;
   }
+  .mobile-sidebar-actions{ display:none; }
+  .mobile-scan-capture{
+    position:fixed;
+    left:-1000px;
+    top:auto;
+    width:1px;
+    height:1px;
+    opacity:.01;
+    pointer-events:none;
+    z-index:-1;
+  }
 
   .mobile-app-bar,.mobile-backdrop,.mobile-visit-row,.mobile-bottom-actions{ display:none; }
 
@@ -1740,12 +1751,18 @@
     .settings-wrap,.timeline-menu-wrap{
       display:none;
     }
-    .app.sidebar-open .settings-wrap{
+    .app.sidebar-open.mobile-settings-open .settings-wrap{
       display:block;
       position:fixed;
-      top:14px;
-      left:calc(min(86vw,330px) - 60px);
-      z-index:90;
+      top:62px;
+      left:14px;
+      z-index:92;
+    }
+    .app.sidebar-open.mobile-settings-open .settings-btn{ display:none; }
+    .app.sidebar-open.mobile-settings-open .settings-menu{
+      display:block;
+      position:static;
+      min-width:240px;
     }
     .settings-btn{
       width:44px;height:44px;
@@ -1764,7 +1781,7 @@
       justify-content:space-between;
       gap:6px;
       min-height:52px;
-      padding:6px 146px 6px 8px;
+      padding:6px 8px;
       border-bottom:1px solid var(--border);
       background:#fff;
     }
@@ -1863,9 +1880,33 @@
     }
     .date-input::-webkit-calendar-picker-indicator{ display:none; }
     .date-today{ display:none; }
-    .main-topbar > .date-nav{ display:flex; }
+    .main-topbar > .date-nav{ display:none; }
     .topbar-doc-actions,.topbar-continue-btn{ display:none !important; }
-    .sidebar > .privacy-row{ display:grid; }
+    .mobile-sidebar-actions{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin:0 0 12px;
+    }
+    .mobile-sidebar-action{
+      flex:1 1 0;
+      min-height:40px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:#fff;
+      color:#343734;
+      font:900 13px 'Inter',sans-serif;
+      cursor:pointer;
+      touch-action:manipulation;
+    }
+    .mobile-sidebar-action.primary{
+      background:var(--teal);
+      border-color:var(--teal);
+      color:#fff;
+    }
+    .sidebar > .visit-toggle,
+    .sidebar .search-scope-toggle,
+    .sidebar > .privacy-row{ display:none !important; }
     .main-scroll{
       flex:1;
       min-height:0;
@@ -2125,6 +2166,10 @@
 
   <!-- SIDEBAR -->
   <aside class="sidebar">
+    <div class="mobile-sidebar-actions" aria-label="List actions">
+      <button class="mobile-sidebar-action" id="mobileSidebarSettingsBtn" type="button">Settings</button>
+      <button class="mobile-sidebar-action primary" id="mobileSidebarBackBtn" type="button">Back</button>
+    </div>
     <div class="note-action-row">
       <button class="record-btn" id="recordBtn">
         <span class="record-dot"></span>
@@ -2261,20 +2306,13 @@
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 19V5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" stroke="currentColor" stroke-width="1.6"/><path d="M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
         </div>
         <div class="empty-title">No record selected</div>
-        <div class="empty-sub">Choose a patient on the left to open their latest note.</div>
+        <div class="empty-sub">Tap Scan OCR, then press the device OCR button to open or create today&apos;s patient entry.</div>
         <div class="home-tool-actions" aria-label="Homepage tools">
-          <button class="home-tool-btn primary" type="button" data-home-voice-mode="Visit Note">Visit Note</button>
-          <button class="home-tool-btn" type="button" data-home-voice-mode="Medical certificate">Certificate</button>
-          <button class="home-tool-btn" type="button" data-home-voice-mode="Reply letter">Reply Letter</button>
-          <div class="home-tools-wrap">
-            <button class="home-tool-btn" type="button" data-home-tools-toggle>Tools</button>
-            <div class="home-tools-panel">
-              <button class="home-tool-btn" type="button" data-home-mmse-open>MMSE</button>
-            </div>
-          </div>
+          <button class="home-tool-btn primary" type="button" data-home-scan-ocr>Scan OCR</button>
         </div>
       </div>
     </div>
+    <textarea class="mobile-scan-capture" id="mobileScanCapture" inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-hidden="true"></textarea>
   </main>
 
   <nav class="mobile-bottom-actions hidden" id="mobileBottomActions" aria-label="Note actions">
@@ -2644,6 +2682,9 @@ const appShell = document.getElementById('appShell');
 const mobileMenuBtn = document.getElementById('mobileMenuBtn');
 const mobileListBtn = document.getElementById('mobileListBtn');
 const mobileHomeBtn = document.getElementById('mobileHomeBtn');
+const mobileSidebarSettingsBtn = document.getElementById('mobileSidebarSettingsBtn');
+const mobileSidebarBackBtn = document.getElementById('mobileSidebarBackBtn');
+const mobileScanCapture = document.getElementById('mobileScanCapture');
 const mobileBackdrop = document.getElementById('mobileBackdrop');
 const mobileBottomActions = document.getElementById('mobileBottomActions');
 const mobileCopyBtn = document.getElementById('mobileCopyBtn');
@@ -4154,11 +4195,19 @@ function noteVisitType(note){
 }
 
 function noteMatchesSelectedVisitType(note){
+  if (isMobileViewport()) return true;
   return noteVisitType(note) === selectedVisitType;
 }
 
 function noteMatchesSelectedScope(note, selectedDate = dateInputValue(selectedVisitDate)){
   if (note?.isDeleted) return false;
+  if (isMobileViewport()){
+    if (noteVisitType(note) !== 'IP') return note.visitDate === selectedDate;
+    const admissionDate = note.admissionDate || note.visitDate || selectedDate;
+    const dischargeDate = note.dischargeDate || null;
+    if (admissionDate > selectedDate) return false;
+    return !dischargeDate || dischargeDate >= selectedDate;
+  }
   if (!noteMatchesSelectedVisitType(note)) return false;
   if (selectedVisitType !== 'IP') return note.visitDate === selectedDate;
   const admissionDate = note.admissionDate || note.visitDate || selectedDate;
@@ -4246,11 +4295,38 @@ function setVisitType(type){
   subscribeToSelectedDate();
 }
 
+function isMobileViewport(){
+  return window.matchMedia('(max-width:600px)').matches;
+}
+
+function forceMobileTodayScope({reload = false} = {}){
+  if (!isMobileViewport()) return;
+  const todayValue = dateInputValue(new Date());
+  const selectedValue = dateInputValue(selectedVisitDate);
+  searchScope = 'today';
+  selectedTimelineKey = null;
+  selectedVisitDate = new Date();
+  updateSearchScopeToggle();
+  updateDateNavigation();
+  if (reload && selectedValue !== todayValue) subscribeToSelectedDate();
+}
+
+function focusMobileScanCapture({clear = false} = {}){
+  if (!mobileScanCapture || !isMobileViewport()) return;
+  if (clear) mobileScanCapture.value = '';
+  requestAnimationFrame(() => {
+    mobileScanCapture.focus({preventScroll:true});
+  });
+}
+
 function closeMobileSidebar(){
   appShell.classList.remove('sidebar-open');
+  appShell.classList.remove('mobile-settings-open');
+  closeSettings();
 }
 
 function openMobileSidebar(){
+  forceMobileTodayScope({reload:true});
   appShell.classList.add('sidebar-open');
 }
 
@@ -4307,7 +4383,7 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
       if (openDefaultOpView()) return;
       selectEntry(0);
     }
-    else if (allowLatestDateFallback && receivedOwners >= owners.length && !latestDateLookupInProgress){
+    else if (!isMobileViewport() && allowLatestDateFallback && receivedOwners >= ownerQueries.length && !latestDateLookupInProgress){
       latestDateLookupInProgress = true;
       try{
         const latestDate = await latestVisitDateForSelectedType();
@@ -4323,23 +4399,45 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
         latestDateLookupInProgress = false;
       }
       showEmptyDate(selectedVisitType === 'IP' ? 'No active IP notes for this date.' : `No ${selectedVisitType} notes saved for this date.`);
-    }else if (receivedOwners >= owners.length) showEmptyDate(selectedVisitType === 'IP' ? 'No active IP notes for this date.' : `No ${selectedVisitType} notes saved for this date.`);
+    }else if (receivedOwners >= ownerQueries.length) showEmptyDate(isMobileViewport() ? 'No patients saved for today.' : (selectedVisitType === 'IP' ? 'No active IP notes for this date.' : `No ${selectedVisitType} notes saved for this date.`));
   };
+  const ownerQueries = owners.flatMap(ownerUid => {
+    if (isMobileViewport()){
+      return [
+        {
+          key:`${ownerUid}:OP`,
+          ownerUid,
+          notesQuery:query(collection(db,'users',ownerUid,'notes'),where('visitDate','==',selectedDate))
+        },
+        {
+          key:`${ownerUid}:IP`,
+          ownerUid,
+          notesQuery:query(collection(db,'users',ownerUid,'notes'),where('visitType','==','IP'))
+        }
+      ];
+    }
+    return [{
+      key:ownerUid,
+      ownerUid,
+      notesQuery:selectedVisitType === 'IP'
+        ? query(collection(db,'users',ownerUid,'notes'),where('visitType','==','IP'))
+        : query(collection(db,'users',ownerUid,'notes'),where('visitDate','==',selectedDate))
+    }];
+  });
   owners.forEach(ownerUid => {
-    const notesQuery = selectedVisitType === 'IP'
-      ? query(collection(db,'users',ownerUid,'notes'),where('visitType','==','IP'))
-      : query(collection(db,'users',ownerUid,'notes'),where('visitDate','==',selectedDate));
-    const unsubscribe = onSnapshot(notesQuery,async snapshot => {
-      receivedOwners += ownerRecords.has(ownerUid) ? 0 : 1;
-      ownerRecords.set(ownerUid, snapshot.docs.map(docSnap => noteFromSnapshot(docSnap, ownerUid)));
-      await applyRecords();
-    }, error => {
-      console.error('Unable to load notes:',error);
-      receivedOwners += ownerRecords.has(ownerUid) ? 0 : 1;
-      ownerRecords.set(ownerUid, []);
-      if (receivedOwners >= owners.length) showEmptyDate('Unable to load notes for this date.');
+    ownerQueries.filter(source => source.ownerUid === ownerUid).forEach(source => {
+      const unsubscribe = onSnapshot(source.notesQuery,async snapshot => {
+        receivedOwners += ownerRecords.has(source.key) ? 0 : 1;
+        ownerRecords.set(source.key, snapshot.docs.map(docSnap => noteFromSnapshot(docSnap, ownerUid)));
+        await applyRecords();
+      }, error => {
+        console.error('Unable to load notes:',error);
+        receivedOwners += ownerRecords.has(source.key) ? 0 : 1;
+        ownerRecords.set(source.key, []);
+        if (receivedOwners >= ownerQueries.length) showEmptyDate('Unable to load notes for this date.');
+      });
+      notesUnsubscribes.push(unsubscribe);
     });
-    notesUnsubscribes.push(unsubscribe);
   });
 }
 
@@ -4447,6 +4545,7 @@ function showEmptyDate(message = 'No notes saved for this date.'){
 function showMobileHomeScreen(){
   activeIndex = null;
   clearTimelineSelection();
+  forceMobileTodayScope({reload:true});
   updateContinueNoteButton();
   topbarPatient.classList.remove('visible');
   copyBtn.style.display = 'none';
@@ -4462,19 +4561,12 @@ function showMobileHomeScreen(){
         <span class="home-brand-pill"><span class="home-brand-dot"></span>Nurse WOYZ</span>
         <span>Notes</span>
       </div>
-      <div class="empty-sub">Please select template to create a new note</div>
+      <div class="empty-sub">Tap Scan OCR, then press the device OCR button to open or create today&apos;s patient entry.</div>
       <div class="home-tool-actions" aria-label="Homepage tools">
-        <button class="home-tool-btn primary" type="button" data-home-voice-mode="Visit Note">Visit Note</button>
-        <button class="home-tool-btn" type="button" data-home-voice-mode="Medical certificate">Certificate</button>
-        <button class="home-tool-btn" type="button" data-home-voice-mode="Reply letter">Reply Letter</button>
-        <div class="home-tools-wrap">
-          <button class="home-tool-btn" type="button" data-home-tools-toggle>Tools</button>
-          <div class="home-tools-panel">
-            <button class="home-tool-btn" type="button" data-home-mmse-open>MMSE</button>
-          </div>
-        </div>
+        <button class="home-tool-btn primary" type="button" data-home-scan-ocr>Scan OCR</button>
       </div>
     </div>`;
+  focusMobileScanCapture();
 }
 
 function updateContinueNoteButton(){
@@ -7829,6 +7921,22 @@ recordSearchInput.addEventListener('paste', event => {
   requestAnimationFrame(updateRecordSearchPlaceholder);
 });
 updateRecordSearchPlaceholder();
+mobileScanCapture?.addEventListener('input', () => {
+  clearTimeout(scannerInputTimer);
+  scannerInputTimer = setTimeout(() => {
+    handleAsterScannerText(mobileScanCapture.value || '', {clearSearch:true}).then(handled => {
+      if (handled) mobileScanCapture.value = '';
+    }).catch(error => console.error('Mobile OCR scanner handling failed:', error));
+  }, 220);
+});
+mobileScanCapture?.addEventListener('paste', event => {
+  const pastedText = event.clipboardData?.getData('text/plain') || '';
+  setTimeout(() => {
+    handleAsterScannerText(pastedText || mobileScanCapture.value || '', {clearSearch:true}).then(handled => {
+      if (handled) mobileScanCapture.value = '';
+    }).catch(error => console.error('Mobile OCR scanner paste handling failed:', error));
+  }, 0);
+});
 document.addEventListener('keydown', event => {
   if (event.metaKey || event.ctrlKey || event.altKey) return;
   if (event.key === 'Enter'){
@@ -7855,6 +7963,12 @@ searchScopeToggle.addEventListener('click', event => {
 });
 mobileMenuBtn.addEventListener('click', openMobileSidebar);
 mobileListBtn.addEventListener('click', openMobileSidebar);
+mobileSidebarSettingsBtn?.addEventListener('click', event => {
+  event.stopPropagation();
+  appShell.classList.add('mobile-settings-open');
+  openSettings();
+});
+mobileSidebarBackBtn?.addEventListener('click', closeMobileSidebar);
 mobileHomeBtn.addEventListener('click', () => {
   closeMobileSidebar();
   showMobileHomeScreen();
@@ -7892,6 +8006,13 @@ function handleDocumentModeAction(mode){
 }
 
 document.addEventListener('click', event => {
+  const scanButton = event.target.closest('[data-home-scan-ocr]');
+  if (scanButton){
+    forceMobileTodayScope({reload:true});
+    closeMobileSidebar();
+    focusMobileScanCapture({clear:true});
+    return;
+  }
   const toolsButton = event.target.closest('[data-home-tools-toggle]');
   if (toolsButton){
     const panel = toolsButton.closest('.home-tools-wrap')?.querySelector('.home-tools-panel');
@@ -8036,6 +8157,7 @@ function closeSettings(){
   settingsMenu.classList.remove('open');
   settingsBtn.classList.remove('open');
   settingsBtn.setAttribute('aria-expanded', 'false');
+  appShell.classList.remove('mobile-settings-open');
 }
 
 function openSettings(){
