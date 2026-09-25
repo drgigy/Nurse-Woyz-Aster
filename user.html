@@ -1940,6 +1940,9 @@
       appearance:none;
       -webkit-appearance:none;
       box-shadow:none;
+      -webkit-user-select:none;
+      user-select:none;
+      -webkit-touch-callout:none;
     }
     .main-scroll{
       flex:1;
@@ -2343,7 +2346,7 @@
         <div class="empty-sub">Press the device OCR button and scan the Aster QR to open or create today&apos;s patient entry.</div>
       </div>
     </div>
-    <textarea class="mobile-scan-capture" id="mobileScanCapture" autofocus enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="OCR scan capture"></textarea>
+    <textarea class="mobile-scan-capture" id="mobileScanCapture" autofocus inputmode="none" virtualkeyboardpolicy="manual" enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="OCR scan capture"></textarea>
   </main>
 
   <nav class="mobile-bottom-actions hidden" id="mobileBottomActions" aria-label="Note actions">
