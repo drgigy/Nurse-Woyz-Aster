@@ -2990,15 +2990,22 @@ function normalizeScannedSex(value){
   return value ? cleanSex(value) : 'NIL';
 }
 
+function cleanUhid(value){
+  const text = String(value || '').trim();
+  if (isNilLike(text)) return 'NIL';
+  return /^\d{9}$/.test(text) ? text : 'NIL';
+}
+
 function parseAsterScanText(value){
   const raw = normalizeScannerText(value);
   const text = compactScannerText(raw);
   if (!/(?:Aster\s*ID|IP\s*No)\s*:/i.test(text)) return null;
   const ipNo = text.match(/\bIP\s*No\s*:?\s*([A-Za-z0-9/-]+)/i)?.[1] || '';
-  const asterId = text.match(/\bAster\s*ID\s*:?\s*([A-Za-z0-9/-]+)/i)?.[1] || '';
-  if (!asterId && !ipNo) return null;
-  const afterAster = asterId
-    ? text.slice(text.search(new RegExp(`Aster\\s*ID\\s*:?\\s*${escapeRegExp(asterId)}`, 'i'))).replace(new RegExp(`^Aster\\s*ID\\s*:?\\s*${escapeRegExp(asterId)}\\s*`, 'i'), '')
+  const rawAsterId = text.match(/\bAster\s*ID\s*:?\s*([A-Za-z0-9/-]+)/i)?.[1] || '';
+  const asterId = cleanUhid(rawAsterId);
+  if (!rawAsterId && !ipNo) return null;
+  const afterAster = rawAsterId
+    ? text.slice(text.search(new RegExp(`Aster\\s*ID\\s*:?\\s*${escapeRegExp(rawAsterId)}`, 'i'))).replace(new RegExp(`^Aster\\s*ID\\s*:?\\s*${escapeRegExp(rawAsterId)}\\s*`, 'i'), '')
     : text;
   const patientMatch = afterAster.match(/((?:(?:Mr|Mrs|Ms|Miss|Master|Baby)\.?\s*)?[A-Za-z][A-Za-z .'-]*?)\s+(\d{1,3})\s*(?:Yrs?|Years?)\s*\/\s*(Male|Female|M|F)\b/i);
   const name = normalizeScannedName(patientMatch?.[1] || '');
@@ -3010,20 +3017,20 @@ function parseAsterScanText(value){
   const location = (doctorMatch ? afterDemographics.slice(0, doctorMatch.index).trim() : afterDemographics)
     .replace(/[;,]+$/g, '')
     .trim();
-  if (!name && !asterId && !ipNo) return null;
+  if (!name && !rawAsterId && !ipNo) return null;
   return {
     rawText:raw,
     visitType:ipNo ? 'IP' : 'OP',
     ipNo,
-    asterId,
+    asterId:asterId === 'NIL' ? '' : asterId,
     location,
     doctor,
     patientData:{
       name:name || 'NIL',
       age:age || 'NIL',
-      uhid:asterId || ipNo || 'NIL',
+      uhid:asterId,
       sex:sex || 'NIL',
-      asterId:asterId || '',
+      asterId:asterId === 'NIL' ? '' : asterId,
       ipNo:ipNo || '',
       location,
       doctor
@@ -3921,7 +3928,7 @@ function patientIdentity(record){
   const patient = record?.patientData || {};
   return {
     name:String(patient.name || record?.name || '').trim(),
-    uhid:String(patient.uhid || record?.uhid || '').trim(),
+    uhid:cleanUhid(patient.uhid || record?.uhid || ''),
     age:cleanAge(patient.age || record?.age || 'NIL'),
     sex:cleanSex(patient.sex || record?.sex || 'NIL')
   };
@@ -3937,7 +3944,7 @@ function patientDataWithFallback(primary = {}, fallback = {}){
   return {
     name:choose('name'),
     age:choose('age', cleanAge),
-    uhid:choose('uhid'),
+    uhid:choose('uhid', cleanUhid),
     sex:choose('sex', cleanSex)
   };
 }
@@ -3952,7 +3959,7 @@ function patientDataWithTrustedFallback(extracted = {}, trusted = {}){
   return {
     name:choose('name'),
     age:choose('age', cleanAge),
-    uhid:choose('uhid'),
+    uhid:choose('uhid', cleanUhid),
     sex:choose('sex', cleanSex)
   };
 }
@@ -8696,7 +8703,7 @@ function extractPatientFromNote(text, fallback = {}){
   return {
     name:find(/^(?:Patient\s+)?Name:\s*([^\n·]+)/im) || fallback?.name || 'NIL',
     age:find(/^Age:\s*(.+)$/im) || fallback?.age || 'NIL',
-    uhid:find(/^UHID:\s*(.+)$/im) || fallback?.uhid || 'NIL',
+    uhid:cleanUhid(find(/^UHID:\s*(.+)$/im) || fallback?.uhid || 'NIL'),
     sex:find(/^Sex:\s*(.+)$/im) || fallback?.sex || 'NIL'
   };
 }
