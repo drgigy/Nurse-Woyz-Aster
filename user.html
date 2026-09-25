@@ -1341,6 +1341,17 @@
     display:none;
   }
   .mobile-sidebar-actions{ display:none; }
+  .sr-only{
+    position:absolute;
+    width:1px;
+    height:1px;
+    padding:0;
+    margin:-1px;
+    overflow:hidden;
+    clip:rect(0,0,0,0);
+    white-space:nowrap;
+    border:0;
+  }
   .mobile-scan-capture{
     position:fixed;
     left:-1000px;
@@ -1910,22 +1921,25 @@
     .mobile-scan-capture.active{
       left:0;
       right:0;
+      top:52px;
       bottom:0;
       width:100vw;
-      height:96px;
-      opacity:.03;
+      height:auto;
+      opacity:1;
       pointer-events:auto;
       z-index:64;
       border:0;
       border-radius:0;
-      background:#fff;
+      background:transparent;
       color:transparent;
       caret-color:transparent;
       font-size:16px;
+      line-height:1;
       resize:none;
       outline:none;
       appearance:none;
       -webkit-appearance:none;
+      box-shadow:none;
     }
     .main-scroll{
       flex:1;
@@ -4620,7 +4634,9 @@ function showMobileHomeScreen(){
         <span>Notes</span>
       </div>
       <div class="empty-sub">Press the device OCR button and scan the Aster QR to open or create today&apos;s patient entry.</div>
+      <label class="sr-only" for="mobileScanCapture">OCR scan capture</label>
     </div>`;
+  mainScroll.appendChild(mobileScanCapture);
   focusMobileScanCapture();
 }
 
@@ -8001,6 +8017,15 @@ mobileScanCapture?.addEventListener('change', () => {
   handleAsterScannerText(mobileScanCapture.value || '', {clearSearch:true}).then(handled => {
     if (handled) mobileScanCapture.value = '';
   }).catch(error => console.error('Mobile OCR scanner change handling failed:', error));
+});
+mobileScanCapture?.addEventListener('keydown', event => {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  event.stopPropagation();
+  clearTimeout(scannerInputTimer);
+  handleAsterScannerText(mobileScanCapture.value || '', {clearSearch:true}).then(handled => {
+    if (handled) mobileScanCapture.value = '';
+  }).catch(error => console.error('Mobile OCR scanner enter handling failed:', error));
 });
 document.addEventListener('keydown', event => {
   if (event.metaKey || event.ctrlKey || event.altKey) return;
