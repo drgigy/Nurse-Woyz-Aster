@@ -2324,10 +2324,7 @@
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 19V5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" stroke="currentColor" stroke-width="1.6"/><path d="M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
         </div>
         <div class="empty-title">No record selected</div>
-        <div class="empty-sub">Tap Scan OCR, then press the device OCR button to open or create today&apos;s patient entry.</div>
-        <div class="home-tool-actions" aria-label="Homepage tools">
-          <button class="home-tool-btn primary" type="button" data-home-scan-ocr>Scan OCR</button>
-        </div>
+        <div class="empty-sub">Press the device OCR button and scan the Aster QR to open or create today&apos;s patient entry.</div>
       </div>
     </div>
     <textarea class="mobile-scan-capture" id="mobileScanCapture" inputmode="none" enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="OCR scan capture"></textarea>
@@ -4341,6 +4338,11 @@ function focusMobileScanCapture({clear = false} = {}){
   }, 120);
 }
 
+function armMobileHomeScanner({clear = false} = {}){
+  if (!isMobileViewport() || !mobileHomeDefaultActive) return;
+  focusMobileScanCapture({clear});
+}
+
 function closeMobileSidebar(){
   appShell.classList.remove('sidebar-open');
   appShell.classList.remove('mobile-settings-open');
@@ -4566,6 +4568,7 @@ function showEmptyDate(message = 'No notes saved for this date.'){
 
 function showMobileHomeScreen(){
   activeIndex = null;
+  mobileHomeDefaultActive = true;
   clearTimelineSelection();
   forceMobileTodayScope({reload:true});
   updateContinueNoteButton();
@@ -4583,10 +4586,7 @@ function showMobileHomeScreen(){
         <span class="home-brand-pill"><span class="home-brand-dot"></span>Nurse WOYZ</span>
         <span>Notes</span>
       </div>
-      <div class="empty-sub">Tap Scan OCR, then press the device OCR button to open or create today&apos;s patient entry.</div>
-      <div class="home-tool-actions" aria-label="Homepage tools">
-        <button class="home-tool-btn primary" type="button" data-home-scan-ocr>Scan OCR</button>
-      </div>
+      <div class="empty-sub">Press the device OCR button and scan the Aster QR to open or create today&apos;s patient entry.</div>
     </div>`;
   focusMobileScanCapture();
 }
@@ -8033,13 +8033,6 @@ function handleDocumentModeAction(mode){
 }
 
 document.addEventListener('click', event => {
-  const scanButton = event.target.closest('[data-home-scan-ocr]');
-  if (scanButton){
-    forceMobileTodayScope({reload:true});
-    closeMobileSidebar();
-    focusMobileScanCapture({clear:true});
-    return;
-  }
   const toolsButton = event.target.closest('[data-home-tools-toggle]');
   if (toolsButton){
     const panel = toolsButton.closest('.home-tools-wrap')?.querySelector('.home-tools-panel');
@@ -8060,6 +8053,11 @@ document.addEventListener('click', event => {
     handleDocumentModeAction(mode);
   }
 });
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) armMobileHomeScanner();
+});
+window.addEventListener('focus', () => armMobileHomeScanner());
+window.addEventListener('pageshow', () => armMobileHomeScanner());
 
 topbarDocActions.addEventListener('click', event => {
   const mmseButton = event.target.closest('[data-mmse-open]');
