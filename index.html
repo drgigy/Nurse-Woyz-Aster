@@ -844,7 +844,11 @@ function moveAdminDate(days){
 
 function visibleNotes(){
   const selectedDate = dateInputValue(selectedVisitDate);
-  return allNotes.filter(note => note.data?.deleted !== true).filter(note => noteMatchesSelectedScope(note, selectedDate));
+  return allNotes
+    .filter(note => note.data?.deleted !== true)
+    .filter(note => note.data?.patientCredential !== true)
+    .filter(note => note.data?.isDraft === false || note.data?.everSaved === true)
+    .filter(note => noteMatchesSelectedScope(note, selectedDate));
 }
 
 function updateVisitToggle(){

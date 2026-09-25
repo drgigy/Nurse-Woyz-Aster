@@ -2803,6 +2803,9 @@ const GEMINI_PROMPTS = {
   'Reply letter':`You are a clinical reply letter drafting assistant. The nurse states the patient name, age, and UHID at the beginning; extract these identifiers into their JSON fields and exclude the opening identification from the letter unless it belongs naturally in the clinical content. Create a clean reply letter from only the dictated audio. Correct spelling and grammar and make sentences complete. Do not add, infer, assume, hallucinate, recommend, or remove any clinical information. Use a polite professional letter style and keep the original meaning exactly. The text must begin exactly with "To," followed by the dictated recipient name, credentials, department, hospital, or address, each on its own line when dictated. Leave one blank line before the main paragraphs. Do not use a salutation or a Reply Letter heading. End with "Thank you" one blank line below the final paragraph. Do not include sender credentials, signature, or footer. If a detail is not dictated, omit it; do not write placeholders or "Not dictated". Return only the requested JSON object.`,
   'Medical certificate':`You are an expert medical certificate drafting assistant. The nurse states the patient name, age, and UHID at the beginning; extract them exactly into their JSON fields. Create a clean medical certificate from only the dictated audio. Correct spelling and grammar and make sentences complete. Do not add, infer, assume, hallucinate, recommend, or remove any clinical or administrative information. Use a simple certificate style. Use today's date only when no date is dictated. The certificateBody must begin with "This is to certify that" and contain one or more clear paragraphs. Include patient details only if dictated or provided in the JSON patient fields. If dates, rest period, diagnosis, fitness, restrictions, or purpose are dictated, include them exactly. If a detail is not dictated, omit it; do not write placeholders or "Not dictated". Do not include "To whomsoever it may concern", "Thank you", nurse credentials, or a signature in certificateBody. Return only the requested JSON object.`
 };
+GEMINI_PROMPTS['Progress Note'] = GEMINI_PROMPTS['Review dictation'];
+GEMINI_PROMPTS['Handover Note'] = GEMINI_PROMPTS['Review dictation'];
+GEMINI_PROMPTS['ER Assessment Note'] = GEMINI_PROMPTS['Review dictation'];
 
 const MMSE_SECTIONS = [
   {key:'orientationTime', title:'Orientation to time', accent:'#2563EB', tint:'#EFF6FF', max:5, items:['Year','Season','Date','Day','Month']},
@@ -2962,6 +2965,81 @@ To,
 
 
 Thank you`;
+
+const PROGRESS_NOTE_TEMPLATE = `Patient Name: NIL
+Age: NIL
+UHID: NIL
+Sex: NIL
+
+Progress Note:
+NIL
+
+Vitals:
+NIL
+
+Nursing Care / Interventions:
+NIL
+
+Response / Current Status:
+NIL
+
+Plan / Pending:
+NIL`;
+
+const HANDOVER_NOTE_TEMPLATE = `Patient Name: NIL
+Age: NIL
+UHID: NIL
+Sex: NIL
+
+Handover Note:
+NIL
+
+Situation:
+NIL
+
+Background:
+NIL
+
+Assessment:
+NIL
+
+Recommendation / Pending Tasks:
+NIL`;
+
+const ER_ASSESSMENT_TEMPLATE = `Patient Name: NIL
+Age: NIL
+UHID: NIL
+Sex: NIL
+
+ER Assessment Note:
+NIL
+
+Arrival / Triage:
+NIL
+
+Presenting Complaint:
+NIL
+
+Vitals:
+NIL
+
+Nursing Assessment:
+NIL
+
+Immediate Care Given:
+NIL
+
+Doctor Informed / Orders:
+NIL
+
+Pending / Handover:
+NIL`;
+
+const NURSE_NOTE_TEMPLATES = [
+  {mode:'Progress Note', label:'Progress note'},
+  {mode:'Handover Note', label:'Handover note'},
+  {mode:'ER Assessment Note', label:'ER assessment'}
+];
 
 function normalizeScannerText(value){
   return String(value || '')
@@ -4670,6 +4748,32 @@ function showMobileHomeScreen(){
   focusMobileScanCapture();
 }
 
+function renderScannedTemplateChooser(record){
+  if (!record) return;
+  mobileHomeDefaultActive = false;
+  stopMobileScannerFocusLoop();
+  setMobileBottomActionsVisible(false);
+  updateContinueNoteButton();
+  topbarPatient.classList.add('visible');
+  const identity = patientIdentity(record);
+  topbarName.textContent = displayPatientName(record);
+  topbarUhid.textContent = 'UHID ' + (identity.uhid || 'NIL');
+  topbarAge.textContent = [identity.sex, identity.age].filter(value => value && value !== 'NIL').join(' · ');
+  copyBtn.style.display = 'none';
+  hidePrintMenuState();
+  saveDraftBtn.classList.remove('visible');
+  deleteBtn.classList.remove('visible');
+  dischargeBtn.classList.remove('visible');
+  mainScroll.innerHTML = `
+    <div class="empty-state">
+      <div class="empty-title">Select a template</div>
+      <div class="empty-sub">${escapeHtml(displayPatientName(record))} · UHID ${escapeHtml(identity.uhid || 'NIL')}</div>
+      <div class="home-tool-actions" aria-label="Nurse note templates">
+        ${NURSE_NOTE_TEMPLATES.map(template => `<button class="home-tool-btn primary" type="button" data-scanned-template-mode="${escapeHtml(template.mode)}">${escapeHtml(template.label)}</button>`).join('')}
+      </div>
+    </div>`;
+}
+
 function updateContinueNoteButton(){
   const canContinue = selectedRecordCanContinue();
   const record = records[activeIndex];
@@ -4942,6 +5046,11 @@ function selectEntry(i,{preserveDirtyEditor = false} = {}){
   copyBtn.classList.remove('copied');
   copyBtn.textContent = 'Copy';
   updateContinueNoteButton();
+
+  if (r.patientCredential){
+    renderScannedTemplateChooser(r);
+    return;
+  }
 
   if (isGeneratedRecord){
     if (keepExistingEditor){
@@ -6396,6 +6505,9 @@ function selectedRecordCanContinue(){
 }
 
 function newVoiceTemplateForMode(mode, visitType = selectedVisitType){
+  if (mode === 'Progress Note') return PROGRESS_NOTE_TEMPLATE;
+  if (mode === 'Handover Note') return HANDOVER_NOTE_TEMPLATE;
+  if (mode === 'ER Assessment Note') return ER_ASSESSMENT_TEMPLATE;
   if (mode === 'Medical certificate') return MEDICAL_CERTIFICATE_TEMPLATE;
   if (mode === 'Reply letter') return REPLY_LETTER_TEMPLATE;
   return visitType === 'OP' ? OP_VOICE_NOTE_TEMPLATE : VOICE_NOTE_TEMPLATE;
@@ -7079,6 +7191,9 @@ async function sendAudioToGemini(audioBlob, apiKey, selectedMode, onRetry, visit
   const taskPrompts = {
     ambient:`Review the complete nurse-patient-attendant recording and produce a mutually consistent structured ${visitContext} visit note from all clearly audible clinical conversation, not only from formal dictated note phrases. Extract clinically relevant facts that are actually present in the ambient conversation and place them under the correct sections. Never infer missing details, never hallucinate, and never add or remove clinical facts. Use NIL for unsupported fields. In Review of Investigations, preserve investigation content fully and verbatim in meaning; never add, remove, shorten, summarize, or make it concise. Use numbered lists for Review of Investigations and Current Medications, with each numbered investigation or medicine starting on a new line. For investigation reports with multiple findings, place each finding on a separate unnumbered line below the numbered investigation. For blood investigations, use one numbered item per blood-report date and list the individual blood values below it without numbering, adding standard units when absent. In Treatment Plan, number only complete treatment actions. Do not split medicine dose, route, timing, frequency, or duration into separate numbered items.${visitContext === 'OP' ? ' Include a Prescription section only when the nurse explicitly dictates a prescription/Rx section or clearly says the following medicines are prescription/Rx medicines. Do not duplicate medicines from Current Medications, Treatment Plan, advice, or treatment changes into Prescription. In Prescription, each medicine must have exactly three lines: numbered Tablet/Cap/Syrup/Inj brand name dose; English patient instruction without repeating the medicine name; natural patient-friendly Kerala Malayalam instruction without repeating the medicine name. Always include the Malayalam instruction line for every prescription medicine. Do not label the Malayalam line. Always write Tablet, not Tab. Do not include demographics inside Prescription.' : ' Do not create a Prescription section for IP notes.'}`,
     'Review dictation':'Transcribe the recording faithfully. Correct only grammar, spelling, and punctuation. Do not add, remove, or infer clinical content.',
+    'Progress Note':'Create a concise ER nursing progress note from only clearly dictated content. Preserve clinical meaning exactly. Include status updates, symptoms, vitals, nursing care or interventions, patient response/current status, doctor communication, and pending plan when dictated. Do not infer missing details. Return text only in the JSON text field.',
+    'Handover Note':'Create a concise ER nursing handover note from only clearly dictated content. Use SBAR-style organization when possible: Situation, Background, Assessment, Recommendation/Pending Tasks. Preserve all dictated clinical details, medicines, vitals, timelines, doctor orders, and pending work exactly in meaning. Do not infer missing details. Return text only in the JSON text field.',
+    'ER Assessment Note':'Create a structured ER nursing assessment note from only clearly dictated content. Include arrival/triage context, presenting complaint, vitals, nursing assessment, immediate care given, doctor informed/orders, and pending/handover items when dictated. Do not infer or add missing details. Return text only in the JSON text field.',
     'Reply letter':'Draft a polite professional reply letter using only clearly dictated facts. Begin the letter text with "To," and end with "Thank you". Omit undictated details and do not add, remove, or infer clinical content.',
     'Medical certificate':'Convert only the clearly dictated facts into a simple medical-certificate JSON. certificateBody must begin with "This is to certify that". Omit undictated details and do not add, remove, or infer facts.'
   };
@@ -7202,6 +7317,9 @@ async function generateContentWithRetry({apiKey,audioBlob,audioData,systemPrompt
 
 function formatGeneratedOutput(data, mode, patient, visitType = selectedVisitType){
   const patientHeader = `Patient Name: ${patient.name}\nAge: ${patient.age}\nUHID: ${patient.uhid}`;
+  if (['Progress Note','Handover Note','ER Assessment Note'].includes(mode)){
+    return `${patientHeader}\nSex: ${patient.sex || data.patientSex || 'NIL'}\n\n${mode}:\n${String(data.text || '').trim()}`.trim();
+  }
   if (mode === 'Review dictation' || mode === 'Reply letter'){
     return `${patientHeader}\n\n${String(data.text || '').trim()}`.trim();
   }
@@ -7459,6 +7577,9 @@ function normalizeNumberedLines(text){
 }
 
 function voiceDraftHeadingForMode(mode){
+  if (mode === 'Progress Note') return 'Progress Note draft';
+  if (mode === 'Handover Note') return 'Handover Note draft';
+  if (mode === 'ER Assessment Note') return 'ER Assessment Note draft';
   if (mode === 'Medical certificate') return 'Medical Certificate draft';
   if (mode === 'Reply letter') return 'Reply Letter draft';
   return 'Visit Note draft';
@@ -7487,6 +7608,10 @@ function selectLocalDraftFromSnapshot(snapshot){
   ];
   activeIndex = 0;
   renderEntries();
+  if (draft.patientCredential){
+    renderScannedTemplateChooser(draft);
+    return draft;
+  }
   if (draft.voiceDraft) renderVoiceWorkspace();
   else renderGeneratedNote(draft);
   return draft;
@@ -7616,6 +7741,64 @@ async function createVoiceDraft(mode = null){
   });
 }
 
+async function createVoiceDraftForPatient(sourceRecord, mode){
+  if (!currentUser || !sourceRecord || !mode) return;
+  return withDraftCreationLock(async () => {
+    const requestedVisitType = noteVisitType(sourceRecord);
+    const today = new Date();
+    selectedVisitDate = today;
+    selectedVisitType = requestedVisitType;
+    updateVisitToggle();
+    stopVoiceTimer();
+    stopMediaTracks();
+    const selectedDateString = dateInputValue(selectedVisitDate);
+    const createdAt = today.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) + ', ' + today.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const patientData = {
+      ...patientDataWithFallback(sourceRecord.patientData || patientIdentity(sourceRecord)),
+      asterId:sourceRecord.patientData?.asterId || '',
+      ipNo:sourceRecord.patientData?.ipNo || '',
+      location:sourceRecord.patientData?.location || '',
+      doctor:sourceRecord.patientData?.doctor || ''
+    };
+    const newDraftRef = doc(userNotesCollection());
+    const draftData = {
+      heading:voiceDraftHeadingForMode(mode),
+      createdAt:null,
+      createdAtLabel:createdAt,
+      visitDate:selectedDateString,
+      visitType:requestedVisitType,
+      admissionDate:requestedVisitType === 'IP' ? selectedDateString : null,
+      isDraft:true,
+      everSaved:false,
+      saved:false,
+      kind:'generated',
+      voiceDraft:true,
+      recording:false,
+      hasStarted:false,
+      selectedMode:mode,
+      status:'Ready to record',
+      transcription:'',
+      patientData,
+      sourcePatientKey:patientSearchKey(sourceRecord),
+      parentCredentialId:sourceRecord.firestoreId || null
+    };
+    pendingSelectId = newDraftRef.id;
+    pendingNewVoiceDockId = newDraftRef.id;
+    clearTimelineSelection();
+    remainingSeconds = 300;
+    selectLocalDraftFromSnapshot({id:newDraftRef.id,data:()=>draftData});
+    closeMobileSidebar();
+    openNewVoiceDock();
+    try{
+      await setDoc(newDraftRef,{...draftData,createdAt:serverTimestamp()},{merge:true});
+      subscribeToSelectedDate();
+    }catch(error){
+      console.error('Template voice draft save failed:', error);
+      window.alert('The note opened locally, but saving is pending. Please check the connection.');
+    }
+  });
+}
+
 function scannerSignature(scan){
   return [scan?.visitType, scan?.ipNo, scan?.asterId, scan?.patientData?.name, scan?.patientData?.age, scan?.patientData?.sex].join('|').toLowerCase();
 }
@@ -7642,9 +7825,17 @@ function openScannedExistingRecord(record){
   setSearchScope('today');
   selectedVisitType = noteVisitType(record);
   updateVisitToggle();
-  if (record.isDraft) return selectExistingDraftRecord(record);
-  if (selectedVisitType === 'IP') return openIpTimelineForRecord(record);
-  return openOpTimelineForRecord(record);
+  const localIndex = records.findIndex(candidate => recordLocalKey(candidate) === recordLocalKey(record) || candidate.firestoreId === record.firestoreId);
+  if (localIndex >= 0){
+    activeIndex = localIndex;
+  }else{
+    records = [record, ...records];
+    activeIndex = 0;
+  }
+  clearTimelineSelection();
+  renderEntries();
+  renderScannedTemplateChooser(records[activeIndex]);
+  return true;
 }
 
 async function createScannedVoiceDraft(scan){
@@ -7664,7 +7855,7 @@ async function createScannedVoiceDraft(scan){
     patientData.doctor = scan.doctor || '';
     const newDraftRef = doc(userNotesCollection());
     const draftData = {
-      heading:'Visit Note draft',
+      heading:'Patient credential',
       createdAt:null,
       createdAtLabel:createdAt,
       visitDate:selectedDateString,
@@ -7673,12 +7864,13 @@ async function createScannedVoiceDraft(scan){
       isDraft:true,
       everSaved:false,
       saved:false,
-      kind:'generated',
-      voiceDraft:true,
+      kind:'credential',
+      patientCredential:true,
+      voiceDraft:false,
       recording:false,
       hasStarted:false,
-      selectedMode:null,
-      status:'Ready to record',
+      selectedMode:'Patient credential',
+      status:'Select a template',
       transcription:'',
       patientData,
       sourcePatientKey:scannerPatientKey({...scan, patientData}),
@@ -7686,15 +7878,14 @@ async function createScannedVoiceDraft(scan){
       scannedText:scan.rawText || ''
     };
     pendingSelectId = newDraftRef.id;
-    pendingNewVoiceDockId = newDraftRef.id;
+    pendingNewVoiceDockId = null;
     clearTimelineSelection();
     mobileHomeDefaultActive = false;
     stopMobileScannerFocusLoop();
-    remainingSeconds = 300;
     selectLocalDraftFromSnapshot({id:newDraftRef.id,data:()=>draftData});
     setSearchScope('today');
     closeMobileSidebar();
-    openNewVoiceDock();
+    renderScannedTemplateChooser(records[activeIndex] || noteFromSnapshot({id:newDraftRef.id,data:()=>draftData}, currentUser.uid));
     try{
       await setDoc(newDraftRef,{...draftData,createdAt:serverTimestamp()},{merge:true});
       subscribeToSelectedDate();
@@ -8126,6 +8317,15 @@ function handleDocumentModeAction(mode){
 }
 
 document.addEventListener('click', event => {
+  const scannedTemplateButton = event.target.closest('[data-scanned-template-mode]');
+  if (scannedTemplateButton){
+    const sourceRecord = records[activeIndex];
+    createVoiceDraftForPatient(sourceRecord, scannedTemplateButton.dataset.scannedTemplateMode).catch(error => {
+      console.error('Unable to create scanned template draft:', error);
+      window.alert('Unable to open this template. Please try again.');
+    });
+    return;
+  }
   const toolsButton = event.target.closest('[data-home-tools-toggle]');
   if (toolsButton){
     const panel = toolsButton.closest('.home-tools-wrap')?.querySelector('.home-tools-panel');
@@ -8713,6 +8913,9 @@ saveDraftBtn.addEventListener('click', async () => {
   });
   clearRecordDirty(draft);
   flashSaveButton();
+  if (isMobileViewport()){
+    setTimeout(() => showMobileHomeScreen(), 350);
+  }
 });
 
 function extractPatientFromNote(text, fallback = {}){
