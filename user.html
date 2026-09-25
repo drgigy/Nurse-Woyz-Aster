@@ -2346,7 +2346,7 @@
         <div class="empty-sub">Press the device OCR button and scan the Aster QR to open or create today&apos;s patient entry.</div>
       </div>
     </div>
-    <textarea class="mobile-scan-capture" id="mobileScanCapture" autofocus inputmode="none" virtualkeyboardpolicy="manual" enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="OCR scan capture"></textarea>
+    <textarea class="mobile-scan-capture" id="mobileScanCapture" autofocus enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="OCR scan capture"></textarea>
   </main>
 
   <nav class="mobile-bottom-actions hidden" id="mobileBottomActions" aria-label="Note actions">
@@ -4351,6 +4351,9 @@ function focusMobileScanCapture({clear = false} = {}){
   if (clear) mobileScanCapture.value = '';
   mobileScanCapture.classList.add('active');
   mobileScanCapture.focus({preventScroll:true});
+  if (navigator.virtualKeyboard && typeof navigator.virtualKeyboard.hide === 'function'){
+    setTimeout(() => navigator.virtualKeyboard.hide(), 80);
+  }
   const scanTextLength = mobileScanCapture.value.length;
   if (typeof mobileScanCapture.setSelectionRange === 'function') mobileScanCapture.setSelectionRange(scanTextLength, scanTextLength);
   setTimeout(() => {
