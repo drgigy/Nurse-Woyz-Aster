@@ -3151,6 +3151,10 @@ function clearTimelineSelection(){
 }
 
 function renderTodayEntries(){
+  if (isMobileViewport()){
+    renderMobilePatientEntries();
+    return;
+  }
   if (selectedVisitType === 'OP'){
     renderOpPatientEntries();
     return;
@@ -3187,6 +3191,61 @@ function renderTodayEntries(){
     `;
     btn.addEventListener('click', () => {
       selectEntry(i);
+      closeMobileSidebar();
+    });
+    entryList.appendChild(btn);
+  });
+}
+
+function renderMobilePatientEntries(){
+  entryList.innerHTML = '';
+  const groups = new Map();
+  records
+    .filter(record => recordMatchesSearch(record))
+    .forEach(record => {
+      const key = patientSearchKey(record);
+      if (!key) return;
+      const group = groups.get(key) || {key, records:[]};
+      group.records.push(record);
+      groups.set(key, group);
+    });
+  const grouped = Array.from(groups.values()).map(group => {
+    group.records = sortRecordsNewestFirst(group.records);
+    group.latest = group.records[0];
+    return group;
+  }).sort((a,b) => recordSortTime(b.latest) - recordSortTime(a.latest));
+  if (!grouped.length){
+    entryList.innerHTML = `<div class="empty-sub" style="padding:10px 8px;">${recordSearchTerm ? 'No matching patients.' : 'No patients saved for today.'}</div>`;
+    return;
+  }
+  const activeKey = activeIndex !== null && records[activeIndex] ? patientSearchKey(records[activeIndex]) : null;
+  grouped.forEach((group, index) => {
+    const latest = group.latest;
+    const identity = patientIdentity(latest);
+    const btn = document.createElement('button');
+    btn.className = 'entry' + (group.key === activeKey || group.key === selectedTimelineKey ? ' active' : '');
+    const ownerCode = ownerInitials(noteOwnerUid(latest)) || initials(identity.name);
+    btn.innerHTML = `
+      <span class="entry-avatar">${escapeHtml(grouped.length - index)}</span>
+      <span class="entry-text">
+        <div class="entry-name">${escapeHtml(displayPatientName(latest))}</div>
+        <div class="entry-uhid">${escapeHtml(`${patientMetaLine(latest)} · ${group.records.length} ${group.records.length === 1 ? 'entry' : 'entries'}`)}</div>
+      </span>
+      <span class="entry-owner">${escapeHtml(ownerCode)}</span>
+    `;
+    btn.addEventListener('click', () => {
+      const credential = group.records.find(record => record.patientCredential);
+      const voiceDraft = group.records.find(record => record.voiceDraft);
+      const generatedDraft = group.records.find(record => record.isDraft && record.kind === 'generated');
+      const directRecord = credential || voiceDraft || generatedDraft;
+      if (directRecord){
+        const directIndex = records.findIndex(record => recordLocalKey(record) === recordLocalKey(directRecord));
+        if (directIndex >= 0) selectEntry(directIndex);
+      }else{
+        selectedTimelineKey = group.key;
+        renderEntries();
+        renderPatientTimeline(group.key);
+      }
       closeMobileSidebar();
     });
     entryList.appendChild(btn);
@@ -7318,7 +7377,7 @@ async function generateContentWithRetry({apiKey,audioBlob,audioData,systemPrompt
 function formatGeneratedOutput(data, mode, patient, visitType = selectedVisitType){
   const patientHeader = `Patient Name: ${patient.name}\nAge: ${patient.age}\nUHID: ${patient.uhid}`;
   if (['Progress Note','Handover Note','ER Assessment Note'].includes(mode)){
-    return `${patientHeader}\nSex: ${patient.sex || data.patientSex || 'NIL'}\n\n${mode}:\n${String(data.text || '').trim()}`.trim();
+    return `${patientHeader}\nSex: ${patient.sex || data.patientSex || 'NIL'}\n\n${formatNursingTemplateOutput(mode, data.text)}`.trim();
   }
   if (mode === 'Review dictation' || mode === 'Reply letter'){
     return `${patientHeader}\n\n${String(data.text || '').trim()}`.trim();
@@ -7341,6 +7400,33 @@ function formatGeneratedOutput(data, mode, patient, visitType = selectedVisitTyp
   ];
   if (visitType === 'OP') sections.push(['Prescription',data.prescription]);
   return `${patientHeader}\nSex: ${patient.sex || data.patientSex || 'NIL'}\n\n${sections.map(([label,value])=>`${label}:\n${formatSectionValue(label,value)}`).join('\n\n')}`;
+}
+
+function nursingTemplateSections(mode){
+  if (mode === 'Handover Note') return ['Situation','Background','Assessment','Recommendation / Pending Tasks'];
+  if (mode === 'ER Assessment Note') return ['Arrival / Triage','Presenting Complaint','Vitals','Nursing Assessment','Immediate Care Given','Doctor Informed / Orders','Pending / Handover'];
+  return ['Progress Note','Vitals','Nursing Care / Interventions','Response / Current Status','Plan / Pending'];
+}
+
+function extractTemplateSection(text, label, allLabels){
+  const source = String(text || '').replace(/\r\n/g, '\n').trim();
+  if (!source) return '';
+  const alternatives = allLabels.map(escapeRegExp).join('|');
+  const pattern = new RegExp(`(?:^|\\n)\\s*${escapeRegExp(label)}\\s*:?\\s*\\n?([\\s\\S]*?)(?=\\n\\s*(?:${alternatives})\\s*:?\\s*(?:\\n|$)|$)`, 'i');
+  return source.match(pattern)?.[1]?.trim() || '';
+}
+
+function formatNursingTemplateOutput(mode, text){
+  const sections = nursingTemplateSections(mode);
+  const source = String(text || '').trim();
+  const sectionValues = sections.map((label, index) => {
+    const extracted = extractTemplateSection(source, label, sections);
+    if (extracted) return [label, extracted];
+    return [label, index === 0 ? source : ''];
+  });
+  return sectionValues
+    .map(([label, value]) => `${label}:\n${formatSectionValue(label, value || 'NIL')}`)
+    .join('\n\n');
 }
 
 function formatSectionValue(label, value){

@@ -568,15 +568,11 @@ function patientTimelineNotes(seedNote){
     .filter(note => note.data?.deleted !== true)
     .filter(note => noteVisitType(note) === noteVisitType(seedNote))
     .filter(note => patientTimelineKey(note) === key)
-    .sort((a,b) => noteCreatedTime(a) - noteCreatedTime(b));
+    .sort((a,b) => noteTime(b) - noteTime(a));
 }
 
 function orderedPatientTimelineNotes(seedNote){
-  const notes = patientTimelineNotes(seedNote);
-  if (notes.length <= 1) return notes;
-  const first = notes[0];
-  const rest = notes.slice(1).sort((a,b) => noteTime(b) - noteTime(a));
-  return [first, ...rest];
+  return patientTimelineNotes(seedNote);
 }
 
 function timelineEntryKey(note){
