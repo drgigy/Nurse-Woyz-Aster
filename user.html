@@ -1907,6 +1907,24 @@
     .sidebar > .visit-toggle,
     .sidebar .search-scope-toggle,
     .sidebar > .privacy-row{ display:none !important; }
+    .mobile-scan-capture.active{
+      left:50%;
+      bottom:calc(18px + env(safe-area-inset-bottom));
+      transform:translateX(-50%);
+      width:min(280px,78vw);
+      height:48px;
+      opacity:.02;
+      pointer-events:auto;
+      z-index:64;
+      border:0;
+      border-radius:12px;
+      background:#fff;
+      color:transparent;
+      caret-color:transparent;
+      font-size:16px;
+      resize:none;
+      outline:none;
+    }
     .main-scroll{
       flex:1;
       min-height:0;
@@ -2312,7 +2330,7 @@
         </div>
       </div>
     </div>
-    <textarea class="mobile-scan-capture" id="mobileScanCapture" inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-hidden="true"></textarea>
+    <textarea class="mobile-scan-capture" id="mobileScanCapture" inputmode="none" enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="OCR scan capture"></textarea>
   </main>
 
   <nav class="mobile-bottom-actions hidden" id="mobileBottomActions" aria-label="Note actions">
@@ -4314,9 +4332,13 @@ function forceMobileTodayScope({reload = false} = {}){
 function focusMobileScanCapture({clear = false} = {}){
   if (!mobileScanCapture || !isMobileViewport()) return;
   if (clear) mobileScanCapture.value = '';
-  requestAnimationFrame(() => {
-    mobileScanCapture.focus({preventScroll:true});
-  });
+  mobileScanCapture.classList.add('active');
+  mobileScanCapture.focus({preventScroll:true});
+  const scanTextLength = mobileScanCapture.value.length;
+  if (typeof mobileScanCapture.setSelectionRange === 'function') mobileScanCapture.setSelectionRange(scanTextLength, scanTextLength);
+  setTimeout(() => {
+    if (document.activeElement !== mobileScanCapture) mobileScanCapture.focus({preventScroll:true});
+  }, 120);
 }
 
 function closeMobileSidebar(){
@@ -7936,6 +7958,11 @@ mobileScanCapture?.addEventListener('paste', event => {
       if (handled) mobileScanCapture.value = '';
     }).catch(error => console.error('Mobile OCR scanner paste handling failed:', error));
   }, 0);
+});
+mobileScanCapture?.addEventListener('change', () => {
+  handleAsterScannerText(mobileScanCapture.value || '', {clearSearch:true}).then(handled => {
+    if (handled) mobileScanCapture.value = '';
+  }).catch(error => console.error('Mobile OCR scanner change handling failed:', error));
 });
 document.addEventListener('keydown', event => {
   if (event.metaKey || event.ctrlKey || event.altKey) return;
