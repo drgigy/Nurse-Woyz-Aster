@@ -2,8 +2,9 @@
 
 Nurse WOYZ is a standalone clone of the WOYZ notes app, adapted for nurse-facing clinical documentation. It keeps the same three-page structure:
 
-- `index.html`: user page for nurse note creation and daily patient workflows.
-- `admin.html`: admin/worklist page for mapped nurse groups.
+- `index.html`: admin/worklist page for mapped nurse groups and the default published page.
+- `admin.html`: same admin/worklist page, kept as a direct compatibility URL.
+- `user.html`: user page for nurse note creation and daily patient workflows.
 - `master-admin.html`: master admin page for creating groups and assigning admin access.
 
 The project is intentionally disconnected from the original WOYZ Firebase project, email backend, CNAME, and old GitHub repositories. It is currently pointed at the renamed Firebase project **Nurse WOYZ Aster** with project ID `rajagiri-neurology`.
@@ -60,7 +61,7 @@ After the script completes:
 
 ## Email Sending
 
-Email UI remains in the app, but sending is disabled because the original cloud function belonged to the old project. Configure a new Nurse WOYZ email backend before enabling `EMAIL_FUNCTION_URL` and `EMAIL_BACKEND_CONFIG` in `index.html`.
+Email UI remains in the user app, but sending is disabled because the original cloud function belonged to the old project. Configure a new Nurse WOYZ email backend before enabling `EMAIL_FUNCTION_URL` and `EMAIL_BACKEND_CONFIG` in `user.html`.
 
 ## Checks
 
@@ -69,14 +70,15 @@ Before publishing after edits, run:
 ```bash
 python3 - <<'PY'
 from pathlib import Path
-for name,out in [('admin.html','/tmp/nurse-woyz-admin-module.js'),('index.html','/tmp/nurse-woyz-index-module.js'),('master-admin.html','/tmp/nurse-woyz-master-module.js')]:
+for name,out in [('index.html','/tmp/nurse-woyz-index-admin-module.js'),('admin.html','/tmp/nurse-woyz-admin-module.js'),('user.html','/tmp/nurse-woyz-user-module.js'),('master-admin.html','/tmp/nurse-woyz-master-module.js')]:
     html = Path(name).read_text()
     start = html.index('<script type="module">') + len('<script type="module">')
     end = html.index('</script>', start)
     Path(out).write_text(html[start:end])
 PY
-node --check /tmp/nurse-woyz-index-module.js
+node --check /tmp/nurse-woyz-index-admin-module.js
 node --check /tmp/nurse-woyz-admin-module.js
+node --check /tmp/nurse-woyz-user-module.js
 node --check /tmp/nurse-woyz-master-module.js
 node --check sw.js
 ```
