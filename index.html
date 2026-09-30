@@ -195,6 +195,20 @@
   .modal-sub{ margin:0; color:var(--muted); font-size:13px; }
   .modal-close{ width:36px; height:36px; border:1px solid var(--border); border-radius:10px; background:#fff; cursor:pointer; font-size:22px; line-height:1; }
   .danger-btn{ color:var(--red); border-color:#F3B3A9; }
+  .nurse-session-card{height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;text-align:center;color:var(--muted);}
+  .nurse-signin-btn{min-height:46px;border:0;border-radius:12px;background:var(--teal);color:#fff;padding:0 18px;font:900 14px 'Inter',sans-serif;cursor:pointer;}
+  .nurse-signin-btn:hover{background:var(--teal-deep);}
+  .nurse-badge{display:none;align-items:center;gap:10px;border:1px solid var(--border);border-radius:12px;background:#fff;padding:7px 10px;}
+  .nurse-badge.visible{display:flex;}
+  .nurse-badge-text{text-align:right;}
+  .nurse-badge-name{font:900 12px 'Inter',sans-serif;max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .nurse-badge-id{color:var(--muted);font:800 11px 'IBM Plex Mono',monospace;margin-top:2px;}
+  .nurse-logout-btn{min-height:34px;border:0;border-radius:9px;background:var(--red-wash);color:var(--red);padding:0 10px;font:900 12px 'Inter',sans-serif;cursor:pointer;}
+  .app.nurse-locked .entry-list,.app.nurse-locked .user-rail{pointer-events:none;}
+  .app.nurse-locked .date-nav,.app.nurse-locked .visit-toggle{opacity:.45;pointer-events:none;}
+  .qr-modal-video{width:100%;max-height:56vh;border-radius:14px;background:#111;object-fit:cover;}
+  .qr-manual-row{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:12px;}
+  .qr-status{min-height:18px;color:var(--muted);font:800 12px 'Inter',sans-serif;margin-top:10px;}
   @media (max-width:900px){
     .app.authenticated{ grid-template-columns:240px 1fr 66px; }
     .sidebar{ padding:16px 12px; }
@@ -240,6 +254,13 @@
         <div class="topbar-meta" id="topbarMeta">Select a user</div>
       </div>
       <div class="spacer"></div>
+      <div class="nurse-badge" id="nurseBadge">
+        <div class="nurse-badge-text">
+          <div class="nurse-badge-name" id="nurseBadgeName"></div>
+          <div class="nurse-badge-id" id="nurseBadgeId"></div>
+        </div>
+        <button class="nurse-logout-btn" id="nurseLogoutBtn" type="button">Logout</button>
+      </div>
       <div class="user-email" id="userEmail"></div>
       <div class="date-nav" id="adminDateNav" aria-label="Visit date navigation">
         <button class="date-step" id="adminPreviousDateBtn" aria-label="Previous day">&lsaquo;</button>
@@ -273,6 +294,27 @@
   <nav class="user-rail" id="userRail" aria-label="Users">
     <div class="rail-label">Users</div>
   </nav>
+</div>
+
+<div class="modal" id="nurseQrModal" role="dialog" aria-modal="true" aria-labelledby="nurseQrModalTitle">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div>
+        <h2 class="modal-title" id="nurseQrModalTitle">Scan nurse QR</h2>
+        <p class="modal-sub">Scan the registered nurse QR code. The QR text should be nurse name, comma, employee ID.</p>
+      </div>
+      <button class="modal-close" id="nurseQrCloseBtn" type="button" aria-label="Close nurse QR scanner">&times;</button>
+    </div>
+    <video class="qr-modal-video" id="nurseQrVideo" playsinline muted></video>
+    <div class="qr-manual-row">
+      <input class="login-input" id="nurseQrManualInput" type="text" autocomplete="off" placeholder="Nurse name, employee ID">
+      <button class="btn copy-btn" id="nurseQrManualBtn" type="button">Use</button>
+    </div>
+    <div class="qr-status" id="nurseQrStatus"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+      <button class="btn" id="nurseQrCancelBtn" type="button">Close</button>
+    </div>
+  </div>
 </div>
 
 <script type="module">
@@ -321,6 +363,17 @@ const adminSettingsBtn = document.getElementById('adminSettingsBtn');
 const adminSettingsMenu = document.getElementById('adminSettingsMenu');
 const signoutBtn = document.getElementById('signoutBtn');
 const notesLabel = document.getElementById('notesLabel');
+const nurseBadge = document.getElementById('nurseBadge');
+const nurseBadgeName = document.getElementById('nurseBadgeName');
+const nurseBadgeId = document.getElementById('nurseBadgeId');
+const nurseLogoutBtn = document.getElementById('nurseLogoutBtn');
+const nurseQrModal = document.getElementById('nurseQrModal');
+const nurseQrVideo = document.getElementById('nurseQrVideo');
+const nurseQrCloseBtn = document.getElementById('nurseQrCloseBtn');
+const nurseQrCancelBtn = document.getElementById('nurseQrCancelBtn');
+const nurseQrManualInput = document.getElementById('nurseQrManualInput');
+const nurseQrManualBtn = document.getElementById('nurseQrManualBtn');
+const nurseQrStatus = document.getElementById('nurseQrStatus');
 
 let notesUnsubscribe = null;
 let profilesUnsubscribe = null;
@@ -339,6 +392,12 @@ let adminDateTouched = false;
 let currentAdminUid = null;
 let adminPrintCloseTimer = null;
 let adminTimelineCloseTimer = null;
+let currentNurse = null;
+let nurseQrStream = null;
+let nurseQrDetector = null;
+let nurseQrScanFrame = null;
+
+const NURSE_SESSION_STORAGE_PREFIX = 'nurse_woyz_admin_active_nurse_';
 
 const DEFAULT_PRESCRIPTION_LAYOUT = {
   includeMalayalam:true,
@@ -349,6 +408,152 @@ const DEFAULT_PRESCRIPTION_LAYOUT = {
 
 function escapeHtml(value){
   return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
+}
+
+function nurseSessionStorageKey(){
+  return `${NURSE_SESSION_STORAGE_PREFIX}${currentAdminUid || 'anonymous'}`;
+}
+
+function normalizeNurseToken(value){
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+function nurseKeyFor(name, employeeId){
+  const id = normalizeNurseToken(employeeId);
+  const nurseName = normalizeNurseToken(name);
+  return id ? `emp:${id}` : `name:${nurseName}`;
+}
+
+function parseNurseQrText(value){
+  const compact = String(value || '').replace(/\r\n/g, '\n').trim().replace(/\n+/g, ',').replace(/\s+/g, ' ');
+  const parts = compact.split(',').map(part => part.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  const name = parts[0];
+  const employeeId = parts.slice(1).join(', ').trim();
+  const key = nurseKeyFor(name, employeeId);
+  return name && employeeId && key ? {name, employeeId, key} : null;
+}
+
+function readStoredNurse(){
+  try{
+    const parsed = JSON.parse(localStorage.getItem(nurseSessionStorageKey()) || 'null');
+    return parsed?.name && parsed?.employeeId && parsed?.key ? parsed : null;
+  }catch(error){
+    return null;
+  }
+}
+
+function storeNurseSession(nurse){
+  if (currentAdminUid && nurse) localStorage.setItem(nurseSessionStorageKey(), JSON.stringify(nurse));
+}
+
+function clearNurseSession(){
+  if (currentAdminUid) localStorage.removeItem(nurseSessionStorageKey());
+  currentNurse = null;
+}
+
+function updateNurseSessionUi(){
+  const signedIn = Boolean(currentNurse);
+  appShell.classList.toggle('nurse-locked', !signedIn);
+  nurseBadge.classList.toggle('visible', signedIn);
+  nurseBadgeName.textContent = signedIn ? currentNurse.name : '';
+  nurseBadgeId.textContent = signedIn ? currentNurse.employeeId : '';
+}
+
+function noteMatchesCurrentNurse(note){
+  return Boolean(currentNurse?.key && note?.data?.nurseKey === currentNurse.key);
+}
+
+function showNurseSignInScreen(){
+  selectedUserId = null;
+  selectedNoteId = null;
+  selectedTimelineEntryId = 'all';
+  users = [];
+  renderUsers();
+  entryList.innerHTML = '';
+  notesLabel.textContent = 'Notes';
+  topbarTitle.textContent = 'Admin notes';
+  topbarMeta.textContent = 'Scan nurse QR';
+  updateNurseSessionUi();
+  showEmpty('Scan nurse QR', 'Please scan QR code of the registered nurse.');
+  mainScroll.innerHTML = `
+    <div class="nurse-session-card">
+      <div class="empty-title">Scan nurse QR</div>
+      <button class="nurse-signin-btn" type="button" data-nurse-signin>Scan QR code to sign in</button>
+      <div>Please scan QR code of the registered nurse.</div>
+    </div>`;
+}
+
+function applyNurseSession(nurse){
+  currentNurse = nurse;
+  storeNurseSession(nurse);
+  updateNurseSessionUi();
+  selectedUserId = null;
+  selectedNoteId = null;
+  selectedTimelineEntryId = 'all';
+  render();
+}
+
+function setNurseQrStatus(message){
+  nurseQrStatus.textContent = message || '';
+}
+
+function stopNurseQrScanner(){
+  if (nurseQrScanFrame) cancelAnimationFrame(nurseQrScanFrame);
+  nurseQrScanFrame = null;
+  if (nurseQrStream) nurseQrStream.getTracks().forEach(track => track.stop());
+  nurseQrStream = null;
+  nurseQrVideo.srcObject = null;
+}
+
+function handleNurseQrText(text){
+  const nurse = parseNurseQrText(text);
+  if (!nurse){
+    setNurseQrStatus('QR should contain: nurse name, employee ID');
+    return false;
+  }
+  stopNurseQrScanner();
+  nurseQrModal.classList.remove('open');
+  nurseQrManualInput.value = '';
+  applyNurseSession(nurse);
+  return true;
+}
+
+async function startNurseQrScanner(){
+  stopNurseQrScanner();
+  nurseQrModal.classList.add('open');
+  nurseQrManualInput.value = '';
+  setNurseQrStatus('Opening camera...');
+  try{
+    if (!('BarcodeDetector' in window)){
+      setNurseQrStatus('Camera QR scanning is not available in this browser. Paste the QR text below.');
+      return;
+    }
+    nurseQrDetector = new BarcodeDetector({formats:['qr_code']});
+    nurseQrStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false});
+    nurseQrVideo.srcObject = nurseQrStream;
+    await nurseQrVideo.play();
+    setNurseQrStatus('Point the camera at the nurse QR code.');
+    const scanFrame = async () => {
+      if (!nurseQrStream) return;
+      try{
+        const codes = await nurseQrDetector.detect(nurseQrVideo);
+        const value = codes?.[0]?.rawValue || '';
+        if (value && handleNurseQrText(value)) return;
+      }catch(error){}
+      nurseQrScanFrame = requestAnimationFrame(scanFrame);
+    };
+    nurseQrScanFrame = requestAnimationFrame(scanFrame);
+  }catch(error){
+    console.error('Nurse QR scanner failed:', error);
+    setNurseQrStatus('Camera could not open. Allow camera access or paste the QR text below.');
+  }
+}
+
+function closeNurseQrModal(){
+  stopNurseQrScanner();
+  nurseQrModal.classList.remove('open');
+  setNurseQrStatus('');
 }
 
 function compactNoteText(text){
@@ -813,6 +1018,7 @@ function updateDateNavigation(){
 
 function latestDateForSelectedType(){
   return allNotes
+    .filter(noteMatchesCurrentNurse)
     .filter(note => noteVisitType(note) === selectedVisitType)
     .filter(note => note.data?.deleted !== true)
     .map(note => note.data?.visitDate)
@@ -839,8 +1045,10 @@ function moveAdminDate(days){
 }
 
 function visibleNotes(){
+  if (!currentNurse) return [];
   const selectedDate = dateInputValue(selectedVisitDate);
   return allNotes
+    .filter(noteMatchesCurrentNurse)
     .filter(note => note.data?.deleted !== true)
     .filter(note => note.data?.patientCredential !== true)
     .filter(note => note.data?.isDraft === false || note.data?.everSaved === true)
@@ -1131,6 +1339,10 @@ function selectedAdminCopyText(){
 }
 
 function render(){
+  if (!currentNurse){
+    showNurseSignInScreen();
+    return;
+  }
   if (!adminDateTouched){
     const latestDate = latestDateForSelectedType();
     if (latestDate){
@@ -1264,11 +1476,15 @@ onAuthStateChanged(auth, async user => {
   selectedNoteId = null;
   currentAdminUid = user?.uid || null;
   if (!user){
+    clearNurseSession();
+    updateNurseSessionUi();
     appShell.classList.remove('authenticated');
     loginScreen.classList.remove('hidden');
     userEmail.textContent = '';
     return;
   }
+  currentNurse = readStoredNurse();
+  updateNurseSessionUi();
   if (await isMasterAdmin(user)){
     setDoc(doc(db,'users',user.uid),{
       email:user.email || '',
@@ -1280,6 +1496,7 @@ onAuthStateChanged(auth, async user => {
     updateDateNavigation();
     subscribeToUserProfiles();
     subscribeToAllNotes();
+    if (!currentNurse) showNurseSignInScreen();
     return;
   }
   const profileRef = doc(db,'users',user.uid);
@@ -1304,6 +1521,7 @@ onAuthStateChanged(auth, async user => {
     userEmail.textContent = user.email || '';
     updateDateNavigation();
     subscribeToScopedNotes(ownerIds);
+    if (!currentNurse) showNurseSignInScreen();
   }).catch(error => {
     console.error(error);
     appShell.classList.remove('authenticated');
@@ -1313,9 +1531,27 @@ onAuthStateChanged(auth, async user => {
   });
 });
 
-adminPreviousDateBtn.addEventListener('click', () => moveAdminDate(-1));
-adminNextDateBtn.addEventListener('click', () => moveAdminDate(1));
+adminPreviousDateBtn.addEventListener('click', event => {
+  if (!currentNurse){
+    event.preventDefault();
+    showNurseSignInScreen();
+    return;
+  }
+  moveAdminDate(-1);
+});
+adminNextDateBtn.addEventListener('click', event => {
+  if (!currentNurse){
+    event.preventDefault();
+    showNurseSignInScreen();
+    return;
+  }
+  moveAdminDate(1);
+});
 adminTodayBtn.addEventListener('click', () => {
+  if (!currentNurse){
+    showNurseSignInScreen();
+    return;
+  }
   adminDateTouched = true;
   selectedVisitDate = new Date();
   selectedUserId = null;
@@ -1325,6 +1561,10 @@ adminTodayBtn.addEventListener('click', () => {
   render();
 });
 adminVisitDateInput.addEventListener('change', () => {
+  if (!currentNurse){
+    showNurseSignInScreen();
+    return;
+  }
   adminDateTouched = true;
   setSelectedVisitDateFromValue(adminVisitDateInput.value);
   selectedUserId = null;
@@ -1335,6 +1575,10 @@ adminVisitDateInput.addEventListener('change', () => {
 });
 
 adminVisitToggle.addEventListener('click', event => {
+  if (!currentNurse){
+    showNurseSignInScreen();
+    return;
+  }
   const button = event.target.closest('[data-admin-visit-type]');
   if (!button) return;
   selectedVisitType = button.dataset.adminVisitType === 'IP' ? 'IP' : 'OP';
@@ -1719,6 +1963,11 @@ adminTimelineMenu.addEventListener('click', event => {
 });
 
 document.addEventListener('click', event => {
+  const nurseSignInButton = event.target.closest('[data-nurse-signin]');
+  if (nurseSignInButton){
+    startNurseQrScanner();
+    return;
+  }
   if (!adminSettingsMenu.contains(event.target) && event.target !== adminSettingsBtn){
     closeAdminSettings();
   }
@@ -1730,7 +1979,27 @@ document.addEventListener('click', event => {
   }
 });
 
-signoutBtn.addEventListener('click', () => signOut(auth));
+nurseLogoutBtn.addEventListener('click', () => {
+  clearNurseSession();
+  selectedUserId = null;
+  selectedNoteId = null;
+  selectedTimelineEntryId = 'all';
+  showNurseSignInScreen();
+});
+nurseQrCloseBtn.addEventListener('click', closeNurseQrModal);
+nurseQrCancelBtn.addEventListener('click', closeNurseQrModal);
+nurseQrModal.addEventListener('click', event => { if (event.target === nurseQrModal) closeNurseQrModal(); });
+nurseQrManualBtn.addEventListener('click', () => handleNurseQrText(nurseQrManualInput.value));
+nurseQrManualInput.addEventListener('keydown', event => {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  handleNurseQrText(nurseQrManualInput.value);
+});
+
+signoutBtn.addEventListener('click', () => {
+  clearNurseSession();
+  signOut(auth);
+});
 </script>
 <script>
 if ('serviceWorker' in navigator) {
@@ -1741,7 +2010,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=171', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=193', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);

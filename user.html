@@ -929,6 +929,7 @@
     order:2;
     flex:0 0 auto;
   }
+  .template-wrap{ display:none !important; }
   .template-wrap::after,
   .timeline-menu-wrap::after{
     content:'';
@@ -1340,6 +1341,84 @@
   .home-tools-wrap{
     display:none;
   }
+  .nurse-session-card{
+    width:min(360px,100%);
+    display:grid;
+    justify-items:center;
+    gap:14px;
+  }
+  .nurse-signin-btn{
+    min-width:210px;
+    min-height:48px;
+    border:0;
+    border-radius:14px;
+    background:var(--teal);
+    color:#fff;
+    font:900 15px 'Inter',sans-serif;
+    cursor:pointer;
+    box-shadow:0 12px 28px -18px rgba(31,95,82,.8);
+  }
+  .nurse-signin-btn:hover{ background:var(--teal-deep); }
+  .nurse-identity{
+    position:fixed;
+    right:14px;
+    bottom:14px;
+    z-index:58;
+    display:none;
+    max-width:min(68vw,260px);
+  }
+  .nurse-identity.visible{ display:block; }
+  .nurse-identity-btn{
+    min-height:42px;
+    border:1px solid #DDE5E0;
+    border-radius:12px;
+    background:#fff;
+    color:var(--ink);
+    padding:7px 12px;
+    text-align:right;
+    cursor:pointer;
+    box-shadow:0 10px 24px -20px rgba(20,35,29,.55);
+  }
+  .nurse-identity-name{ font:900 12px 'Inter',sans-serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .nurse-identity-id{ color:var(--muted); font:800 11px 'IBM Plex Mono',monospace; margin-top:2px; }
+  .nurse-identity-menu{
+    position:absolute;
+    right:0;
+    bottom:calc(100% + 7px);
+    display:none;
+    min-width:120px;
+    border:1px solid var(--border);
+    border-radius:12px;
+    background:#fff;
+    padding:6px;
+    box-shadow:0 18px 38px -24px rgba(20,35,29,.45);
+  }
+  .nurse-identity.open .nurse-identity-menu{ display:block; }
+  .nurse-logout-btn{
+    width:100%;
+    min-height:38px;
+    border:0;
+    border-radius:9px;
+    background:transparent;
+    color:var(--red);
+    font:900 13px 'Inter',sans-serif;
+    cursor:pointer;
+  }
+  .nurse-logout-btn:hover{ background:var(--red-wash); }
+  .qr-modal-video{
+    width:100%;
+    max-height:56vh;
+    border-radius:14px;
+    background:#111;
+    object-fit:cover;
+  }
+  .qr-manual-row{
+    display:grid;
+    grid-template-columns:1fr auto;
+    gap:8px;
+    margin-top:12px;
+  }
+  .qr-status{ min-height:18px; color:var(--muted); font:800 12px 'Inter',sans-serif; margin-top:10px; }
   .mobile-sidebar-actions{ display:none; }
   .sr-only{
     position:absolute;
@@ -1817,6 +1896,17 @@
       font:900 12px 'Inter',sans-serif;
       cursor:pointer;
     }
+    .app.nurse-locked .mobile-list-btn,
+    .app.nurse-locked .mobile-home-btn,
+    .app.nurse-locked .date-nav,
+    .app.nurse-locked .date-display,
+    .app.nurse-locked .date-step{
+      opacity:.45;
+      pointer-events:none;
+    }
+    .app.nurse-locked .sidebar .entry-list{
+      pointer-events:none;
+    }
     #mobileHomeBtn{
       background:#D7383A;
       border-color:#C8292D;
@@ -2171,6 +2261,14 @@
     .main-topbar > .btn,
     .main-topbar > .print-wrap,
     .main-topbar > .email-wrap{ display:none !important; }
+    .nurse-identity{
+      right:10px;
+      bottom:calc(48px + env(safe-area-inset-bottom));
+    }
+    .nurse-identity-btn{
+      min-height:38px;
+      padding:6px 10px;
+    }
   }
 
   ::-webkit-scrollbar{ width:9px; }
@@ -2323,7 +2421,7 @@
           </button>
           <button class="settings-item auth-item" id="credentialBtn">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M20 21a8 8 0 1 0-16 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/></svg>
-            Select credential
+            Device name
           </button>
           <button class="settings-item auth-item" id="layoutBtn">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><rect x="4" y="5" width="16" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M4 9h16M8 13h8M8 16h5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -2349,6 +2447,16 @@
     <textarea class="mobile-scan-capture" id="mobileScanCapture" autofocus enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="OCR scan capture"></textarea>
   </main>
 
+  <div class="nurse-identity" id="nurseIdentity">
+    <button class="nurse-identity-btn" id="nurseIdentityBtn" type="button" aria-haspopup="true" aria-expanded="false">
+      <div class="nurse-identity-name" id="nurseIdentityName"></div>
+      <div class="nurse-identity-id" id="nurseIdentityId"></div>
+    </button>
+    <div class="nurse-identity-menu" id="nurseIdentityMenu">
+      <button class="nurse-logout-btn" id="nurseLogoutBtn" type="button">Logout</button>
+    </div>
+  </div>
+
   <nav class="mobile-bottom-actions hidden" id="mobileBottomActions" aria-label="Note actions">
     <button class="mobile-action" id="mobileCopyBtn" aria-label="Copy note">
       Copy
@@ -2366,6 +2474,25 @@
       Save
     </button>
   </nav>
+</div>
+
+<div class="modal-backdrop" id="nurseQrModal" role="dialog" aria-modal="true" aria-labelledby="nurseQrModalTitle">
+  <div class="auth-modal">
+    <div class="auth-modal-head">
+      <h2 class="auth-modal-title" id="nurseQrModalTitle">Scan nurse QR</h2>
+      <button class="modal-close" id="nurseQrCloseBtn" aria-label="Close nurse QR scanner">&times;</button>
+    </div>
+    <p class="auth-help">Scan the registered nurse QR code. The QR text should be nurse name, comma, employee ID.</p>
+    <video class="qr-modal-video" id="nurseQrVideo" playsinline muted></video>
+    <div class="qr-manual-row">
+      <input class="auth-input" id="nurseQrManualInput" type="text" autocomplete="off" placeholder="Nurse name, employee ID">
+      <button class="btn btn-copy" id="nurseQrManualBtn" type="button">Use</button>
+    </div>
+    <div class="qr-status" id="nurseQrStatus"></div>
+    <div class="auth-actions">
+      <button class="btn" id="nurseQrCancelBtn" type="button">Close</button>
+    </div>
+  </div>
 </div>
 
 <button class="continue-note-btn" id="continueNoteBtn" aria-label="Continue selected note by dictation" title="Continue dictation">
@@ -2420,15 +2547,15 @@
 <div class="modal-backdrop" id="credentialModal" role="dialog" aria-modal="true" aria-labelledby="credentialModalTitle">
   <div class="auth-modal">
     <div class="auth-modal-head">
-      <h2 class="auth-modal-title" id="credentialModalTitle">Credential name</h2>
+      <h2 class="auth-modal-title" id="credentialModalTitle">Device name</h2>
       <button class="modal-close" id="credentialCloseBtn" aria-label="Close credential dialog">&times;</button>
     </div>
-    <p class="auth-help">Set the name that should appear for this user in the admin page.</p>
-    <label class="auth-label" for="credentialNameInput">Name</label>
-    <input class="auth-input" id="credentialNameInput" type="text" autocomplete="name" placeholder="Example: Dr Gigy">
+    <p class="auth-help">Set the device name that should appear for this login in the admin page.</p>
+    <label class="auth-label" for="credentialNameInput">Device name</label>
+    <input class="auth-input" id="credentialNameInput" type="text" autocomplete="off">
     <div class="auth-actions">
       <button class="btn" id="credentialCancelBtn">Close</button>
-      <button class="btn btn-copy" id="credentialSaveBtn">Save name</button>
+      <button class="btn btn-copy" id="credentialSaveBtn">Save device</button>
     </div>
   </div>
 </div>
@@ -2726,6 +2853,18 @@ const mobileReviewBtn = document.getElementById('mobileReviewBtn');
 const mobileRecordBtn = document.getElementById('mobileRecordBtn');
 const mobileAddNoteBtn = document.getElementById('mobileAddNoteBtn');
 const mobileSaveBtn = document.getElementById('mobileSaveBtn');
+const nurseIdentity = document.getElementById('nurseIdentity');
+const nurseIdentityBtn = document.getElementById('nurseIdentityBtn');
+const nurseIdentityName = document.getElementById('nurseIdentityName');
+const nurseIdentityId = document.getElementById('nurseIdentityId');
+const nurseLogoutBtn = document.getElementById('nurseLogoutBtn');
+const nurseQrModal = document.getElementById('nurseQrModal');
+const nurseQrVideo = document.getElementById('nurseQrVideo');
+const nurseQrCloseBtn = document.getElementById('nurseQrCloseBtn');
+const nurseQrCancelBtn = document.getElementById('nurseQrCancelBtn');
+const nurseQrManualInput = document.getElementById('nurseQrManualInput');
+const nurseQrManualBtn = document.getElementById('nurseQrManualBtn');
+const nurseQrStatus = document.getElementById('nurseQrStatus');
 const continueNoteBtn = document.getElementById('continueNoteBtn');
 const topbarDocActions = document.getElementById('topbarDocActions');
 const topbarContinueBtn = document.getElementById('topbarContinueBtn');
@@ -2791,6 +2930,7 @@ const AMBIENT_FIELDS = ['presentingComplaint','historyOfPresentIllness','pastMed
 const OP_AMBIENT_FIELDS = [...AMBIENT_FIELDS,'prescription'];
 const REMEMBERED_EMAILS_STORAGE_KEY = 'nurse_woyz_remembered_emails';
 const EMAIL_DEVICE_ID_STORAGE_KEY = 'nurse_woyz_email_device_id';
+const NURSE_SESSION_STORAGE_PREFIX = 'nurse_woyz_active_nurse_';
 const EMAIL_FUNCTION_URL = '';
 const EMAIL_BACKEND_CONFIG = null;
 const ambientSchemaForVisitType = visitType => {
@@ -2898,6 +3038,10 @@ let scannerKeyTimer = null;
 let lastHandledScannerSignature = '';
 let lastHandledScannerAt = 0;
 let mobileScannerFocusTimer = null;
+let currentNurse = null;
+let nurseQrStream = null;
+let nurseQrDetector = null;
+let nurseQrScanFrame = null;
 
 const MANUAL_NOTE_TEMPLATE = `Patient Name: 
 Age: 
@@ -3087,6 +3231,133 @@ function extractScannedUhid(text){
     || text.match(/\bAsterID\s*:?\s*(\d{9})\b/i)?.[1]
     || text.match(/\bUHID\s*:?\s*(\d{9})\b/i)?.[1];
   return firstValidUhid(labeled, text.match(/\b\d{9}\b/)?.[0]);
+}
+
+function nurseSessionStorageKey(){
+  return `${NURSE_SESSION_STORAGE_PREFIX}${currentUser?.uid || 'anonymous'}`;
+}
+
+function normalizeNurseToken(value){
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+function nurseKeyFor(name, employeeId){
+  const id = normalizeNurseToken(employeeId);
+  const nurseName = normalizeNurseToken(name);
+  return id ? `emp:${id}` : `name:${nurseName}`;
+}
+
+function parseNurseQrText(value){
+  const text = String(value || '').replace(/\r\n/g, '\n').trim();
+  const compact = text.replace(/\n+/g, ',').replace(/\s+/g, ' ').trim();
+  const parts = compact.split(',').map(part => part.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  const name = parts[0];
+  const employeeId = parts.slice(1).join(', ').trim();
+  const key = nurseKeyFor(name, employeeId);
+  if (!name || !employeeId || !key) return null;
+  return {name, employeeId, key};
+}
+
+function readStoredNurse(){
+  if (!currentUser) return null;
+  try{
+    const parsed = JSON.parse(localStorage.getItem(nurseSessionStorageKey()) || 'null');
+    return parsed?.name && parsed?.employeeId && parsed?.key ? parsed : null;
+  }catch(error){
+    return null;
+  }
+}
+
+function storeNurseSession(nurse){
+  if (!currentUser || !nurse) return;
+  localStorage.setItem(nurseSessionStorageKey(), JSON.stringify(nurse));
+}
+
+function clearNurseSession(){
+  if (currentUser) localStorage.removeItem(nurseSessionStorageKey());
+  currentNurse = null;
+}
+
+function recordMatchesCurrentNurse(record){
+  if (!currentNurse?.key) return false;
+  return record?.nurseKey === currentNurse.key;
+}
+
+function noteDataMatchesCurrentNurse(data){
+  if (!currentNurse?.key) return false;
+  return data?.nurseKey === currentNurse.key;
+}
+
+function nurseFields(){
+  return currentNurse ? {
+    nurseName:currentNurse.name,
+    nurseEmployeeId:currentNurse.employeeId,
+    nurseKey:currentNurse.key
+  } : {};
+}
+
+function updateNurseSessionUi(){
+  const signedIn = Boolean(currentNurse);
+  appShell.classList.toggle('nurse-locked', !signedIn);
+  nurseIdentity.classList.toggle('visible', signedIn);
+  nurseIdentityBtn?.setAttribute('aria-expanded', nurseIdentity.classList.contains('open') ? 'true' : 'false');
+  if (signedIn){
+    nurseIdentityName.textContent = currentNurse.name;
+    nurseIdentityId.textContent = currentNurse.employeeId;
+  }else{
+    nurseIdentityName.textContent = '';
+    nurseIdentityId.textContent = '';
+  }
+}
+
+function requireNurseSession(){
+  if (currentNurse) return true;
+  showNurseSignInScreen();
+  return false;
+}
+
+function showNurseSignInScreen(){
+  activeIndex = null;
+  mobileHomeDefaultActive = false;
+  stopMobileScannerFocusLoop();
+  clearTimelineSelection();
+  updateContinueNoteButton();
+  topbarPatient.classList.remove('visible');
+  copyBtn.style.display = 'none';
+  hidePrintMenuState();
+  saveDraftBtn.classList.remove('visible');
+  deleteBtn.classList.remove('visible');
+  dischargeBtn.classList.remove('visible');
+  setMobileBottomActionsVisible(false);
+  records = [];
+  allRecords = [];
+  renderEntries();
+  updateNurseSessionUi();
+  mainScroll.innerHTML = `
+    <div class="empty-state">
+      <div class="nurse-session-card">
+        <div class="home-brand" aria-label="Nurse WOYZ">
+          <span class="home-brand-pill"><span class="home-brand-dot"></span>Nurse WOYZ</span>
+          <span>Notes</span>
+        </div>
+        <button class="nurse-signin-btn" type="button" data-nurse-signin>Scan QR code to sign in</button>
+        <div class="empty-sub">Please scan QR code of the registered nurse.</div>
+      </div>
+    </div>`;
+}
+
+function applyNurseSession(nurse){
+  currentNurse = nurse;
+  storeNurseSession(nurse);
+  updateNurseSessionUi();
+  selectedVisitDate = new Date();
+  updateDateNavigation();
+  mobileHomeDefaultPending = isMobileViewport();
+  mobileHomeDefaultActive = mobileHomeDefaultPending;
+  subscribeToSelectedDate({allowLatestDateFallback:true});
+  subscribeToAllRecords();
+  if (isMobileViewport()) showMobileHomeScreen();
 }
 
 function parseAsterScanText(value){
@@ -3341,8 +3612,8 @@ renderEntries();
 
 function patientSearchKey(record){
   const identity = patientIdentity(record);
-  const uhid = normalizePatientToken(identity.uhid);
-  if (uhid && uhid !== 'nil') return `uhid:${uhid}`;
+  const uhid = cleanUhid(identity.uhid);
+  if (uhid !== 'NIL') return `uhid:${uhid}`;
   const name = normalizePatientToken(identity.name || record?.name);
   const sex = normalizePatientToken(identity.sex);
   const age = normalizePatientToken(identity.age);
@@ -4374,6 +4645,9 @@ function noteFromSnapshot(snapshot, ownerUid = currentUser?.uid){
     isDraft:data.isDraft === true,
     transcription:data.transcription || '',
     patientData:data.patientData || {name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'},
+    nurseName:data.nurseName || '',
+    nurseEmployeeId:data.nurseEmployeeId || '',
+    nurseKey:data.nurseKey || '',
     voiceDraft:data.voiceDraft === true,
     visitType:data.visitType === 'IP' || data.visitType === 'OP' ? data.visitType : null,
     admissionDate:data.admissionDate || data.visitDate || null,
@@ -4417,6 +4691,7 @@ async function latestVisitDateForSelectedType(){
   const snapshots = await Promise.all(owners.map(ownerUid => getDocs(collection(db,'users',ownerUid,'notes')).catch(() => null)));
   return snapshots
     .flatMap((snapshot, index) => snapshot ? snapshot.docs.map(docSnap => noteFromSnapshot(docSnap, owners[index])) : [])
+    .filter(recordMatchesCurrentNurse)
     .filter(noteMatchesSelectedVisitType)
     .map(note => note.visitDate)
     .filter(Boolean)
@@ -4551,9 +4826,77 @@ function stopMobileScannerFocusLoop(){
 }
 
 function armMobileHomeScanner({clear = false} = {}){
-  if (!isMobileViewport() || !mobileHomeDefaultActive) return;
+  if (!isMobileViewport() || !mobileHomeDefaultActive || !currentNurse) return;
   focusMobileScanCapture({clear});
   startMobileScannerFocusLoop();
+}
+
+function setNurseQrStatus(message){
+  nurseQrStatus.textContent = message || '';
+}
+
+function stopNurseQrScanner(){
+  if (nurseQrScanFrame) cancelAnimationFrame(nurseQrScanFrame);
+  nurseQrScanFrame = null;
+  if (nurseQrStream) nurseQrStream.getTracks().forEach(track => track.stop());
+  nurseQrStream = null;
+  if (nurseQrVideo) nurseQrVideo.srcObject = null;
+}
+
+function handleNurseQrText(text){
+  const nurse = parseNurseQrText(text);
+  if (!nurse){
+    setNurseQrStatus('QR should contain: nurse name, employee ID');
+    return false;
+  }
+  stopNurseQrScanner();
+  nurseQrModal.classList.remove('open');
+  nurseQrManualInput.value = '';
+  applyNurseSession(nurse);
+  return true;
+}
+
+async function startNurseQrScanner(){
+  stopMobileScannerFocusLoop();
+  stopNurseQrScanner();
+  setNurseQrStatus('Opening camera...');
+  nurseQrModal.classList.add('open');
+  nurseQrManualInput.value = '';
+  try{
+    if (!('BarcodeDetector' in window)){
+      setNurseQrStatus('Camera QR scanning is not available in this browser. Paste the QR text below.');
+      return;
+    }
+    nurseQrDetector = new BarcodeDetector({formats:['qr_code']});
+    nurseQrStream = await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:'environment'}},
+      audio:false
+    });
+    nurseQrVideo.srcObject = nurseQrStream;
+    await nurseQrVideo.play();
+    setNurseQrStatus('Point the rear camera at the nurse QR code.');
+    const scanFrame = async () => {
+      if (!nurseQrStream) return;
+      try{
+        const codes = await nurseQrDetector.detect(nurseQrVideo);
+        const value = codes?.[0]?.rawValue || '';
+        if (value && handleNurseQrText(value)) return;
+      }catch(error){
+        setNurseQrStatus('Unable to read QR yet. Keep the QR inside the camera view.');
+      }
+      nurseQrScanFrame = requestAnimationFrame(scanFrame);
+    };
+    nurseQrScanFrame = requestAnimationFrame(scanFrame);
+  }catch(error){
+    console.error('Nurse QR scanner failed:', error);
+    setNurseQrStatus('Camera could not open. Allow camera access or paste the QR text below.');
+  }
+}
+
+function closeNurseQrModal(){
+  stopNurseQrScanner();
+  nurseQrModal.classList.remove('open');
+  setNurseQrStatus('');
 }
 
 function closeMobileSidebar(){
@@ -4574,6 +4917,13 @@ function setMobileBottomActionsVisible(visible){
 
 function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
   if (!currentUser) return;
+  if (!currentNurse){
+    clearNotesSubscriptions();
+    records = [];
+    renderEntries();
+    showNurseSignInScreen();
+    return;
+  }
   clearNotesSubscriptions();
   const requestId = ++dateSubscriptionRequestId;
   const selectedDate = dateInputValue(selectedVisitDate);
@@ -4583,7 +4933,7 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
   const applyRecords = async () => {
     captureActiveEditorState();
     const previousId = activeIndex !== null ? `${noteOwnerUid(records[activeIndex])}:${records[activeIndex]?.firestoreId}` : null;
-    records = Array.from(ownerRecords.values()).flat().map(applyLocalDirtyRecord).filter(note => noteMatchesSelectedScope(note, selectedDate)).sort((a,b) => {
+    records = Array.from(ownerRecords.values()).flat().map(applyLocalDirtyRecord).filter(recordMatchesCurrentNurse).filter(note => noteMatchesSelectedScope(note, selectedDate)).sort((a,b) => {
       const aTime = a.createdAtValue?.toMillis?.() || 0;
       const bTime = b.createdAtValue?.toMillis?.() || 0;
       return bTime - aTime;
@@ -4692,12 +5042,12 @@ function clearAllNotesSubscriptions(){
 }
 
 function subscribeToAllRecords(){
-  if (!currentUser) return;
+  if (!currentUser || !currentNurse) return;
   clearAllNotesSubscriptions();
   const owners = sharedOwnerIds.length ? sharedOwnerIds : [currentUser.uid];
   owners.forEach(ownerUid => {
     const unsubscribe = onSnapshot(collection(db,'users',ownerUid,'notes'), snapshot => {
-      allOwnerRecords.set(ownerUid, snapshot.docs.map(docSnap => applyLocalDirtyRecord(noteFromSnapshot(docSnap, ownerUid))));
+      allOwnerRecords.set(ownerUid, snapshot.docs.map(docSnap => applyLocalDirtyRecord(noteFromSnapshot(docSnap, ownerUid))).filter(recordMatchesCurrentNurse));
       allRecords = Array.from(allOwnerRecords.values()).flat();
       if (searchScope === 'all'){
         renderEntries();
@@ -4741,6 +5091,12 @@ async function applySharedOwners(ownerIds){
     }
   }));
   ownerProfiles = {...ownerProfiles, ...Object.fromEntries(profileEntries)};
+  if (!currentNurse){
+    clearNotesSubscriptions();
+    clearAllNotesSubscriptions();
+    showNurseSignInScreen();
+    return;
+  }
   subscribeToSelectedDate({allowLatestDateFallback:true});
   subscribeToAllRecords();
 }
@@ -4894,6 +5250,7 @@ async function saveOpAllEntries(){
     record.adminCopiedBy = null;
     syncRecordCollections(record);
     await persistRecord(record,{
+      ...nurseFields(),
       kind:'generated',
       voiceDraft:false,
       isDraft:false,
@@ -4963,6 +5320,8 @@ onAuthStateChanged(auth,user => {
     loginScreen.classList.add('hidden');
     appShell.classList.add('authenticated');
     userEmail.textContent = '';
+    currentNurse = readStoredNurse();
+    updateNurseSessionUi();
     userProfileUnsubscribe = onSnapshot(doc(db,'users',user.uid), snapshot => {
       const profile = snapshot.data() || {};
       userEmail.textContent = displayCredentialName(profile.credentialName) || '';
@@ -4977,14 +5336,17 @@ onAuthStateChanged(auth,user => {
     });
     selectedVisitDate = new Date();
     updateDateNavigation();
-    mobileHomeDefaultPending = window.matchMedia('(max-width:600px)').matches;
+    mobileHomeDefaultPending = window.matchMedia('(max-width:600px)').matches && Boolean(currentNurse);
     mobileHomeDefaultActive = mobileHomeDefaultPending;
     if (mobileHomeDefaultActive) showMobileHomeScreen();
+    if (!currentNurse) showNurseSignInScreen();
     sharedOwnerIds = [user.uid];
     ownerProfiles = {};
     subscribeToGroups();
   }else{
     clearRecordSearch();
+    clearNurseSession();
+    updateNurseSessionUi();
     mobileHomeDefaultPending = false;
     mobileHomeDefaultActive = false;
     clearNotesSubscriptions();
@@ -7757,6 +8119,7 @@ async function withDraftCreationLock(task){
 
 async function createVoiceDraft(mode = null){
   if (!currentUser) return;
+  if (!requireNurseSession()) return;
   return withDraftCreationLock(async () => {
     const selectedMode = mode || null;
     const requestedVisitType = selectedVisitType === 'IP' ? 'IP' : 'OP';
@@ -7781,6 +8144,7 @@ async function createVoiceDraft(mode = null){
       const createdAt = now.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) + ', ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
       const newDraftRef = doc(userNotesCollection());
       const draftData = {
+        ...nurseFields(),
         heading: voiceDraftHeadingForMode(selectedMode),
         createdAt:null,
         createdAtLabel:createdAt,
@@ -7829,6 +8193,7 @@ async function createVoiceDraft(mode = null){
 
 async function createVoiceDraftForPatient(sourceRecord, mode){
   if (!currentUser || !sourceRecord || !mode) return;
+  if (!requireNurseSession()) return;
   return withDraftCreationLock(async () => {
     const requestedVisitType = noteVisitType(sourceRecord);
     const today = new Date();
@@ -7848,6 +8213,7 @@ async function createVoiceDraftForPatient(sourceRecord, mode){
     };
     const newDraftRef = doc(userNotesCollection());
     const draftData = {
+      ...nurseFields(),
       heading:voiceDraftHeadingForMode(mode),
       createdAt:null,
       createdAtLabel:createdAt,
@@ -7926,6 +8292,7 @@ function openScannedExistingRecord(record){
 
 async function createScannedVoiceDraft(scan){
   if (!currentUser) return null;
+  if (!requireNurseSession()) return null;
   return withDraftCreationLock(async () => {
     const requestedVisitType = scan.visitType === 'IP' ? 'IP' : 'OP';
     const today = new Date();
@@ -7941,6 +8308,7 @@ async function createScannedVoiceDraft(scan){
     patientData.doctor = scan.doctor || '';
     const newDraftRef = doc(userNotesCollection());
     const draftData = {
+      ...nurseFields(),
       heading:'Patient credential',
       createdAt:null,
       createdAtLabel:createdAt,
@@ -7986,6 +8354,7 @@ async function createScannedVoiceDraft(scan){
 async function handleAsterScannerText(value, {clearSearch = false} = {}){
   const scan = parseAsterScanText(value);
   if (!scan || !currentUser) return false;
+  if (!requireNurseSession()) return true;
   const signature = scannerSignature(scan);
   if (signature && signature === lastHandledScannerSignature && Date.now() - lastHandledScannerAt < 2500) return true;
   lastHandledScannerSignature = signature;
@@ -8008,6 +8377,7 @@ async function handleAsterScannerText(value, {clearSearch = false} = {}){
 
 async function createManualDraft(){
   if (!currentUser) return;
+  if (!requireNurseSession()) return;
   return withDraftCreationLock(async () => {
     if (searchScope === 'all'){
       searchScope = 'today';
@@ -8028,6 +8398,7 @@ async function createManualDraft(){
     const selectedDateString = dateInputValue(selectedVisitDate);
     const newDraftRef = doc(userNotesCollection());
     const draftData = {
+      ...nurseFields(),
       heading: 'Manual note draft',
       createdAt:null,
       createdAtLabel:createdAt,
@@ -8217,9 +8588,22 @@ function moveVisitDate(days){
   subscribeToSelectedDate();
 }
 
-previousDateBtn.addEventListener('click', () => moveVisitDate(-1));
-nextDateBtn.addEventListener('click', () => moveVisitDate(1));
+previousDateBtn.addEventListener('click', event => {
+  if (!requireNurseSession()){
+    event.preventDefault();
+    return;
+  }
+  moveVisitDate(-1);
+});
+nextDateBtn.addEventListener('click', event => {
+  if (!requireNurseSession()){
+    event.preventDefault();
+    return;
+  }
+  moveVisitDate(1);
+});
 visitDateDisplay.addEventListener('click', () => {
+  if (!requireNurseSession()) return;
   if (typeof visitDateInput.showPicker === 'function'){
     visitDateInput.showPicker();
   }else{
@@ -8228,6 +8612,7 @@ visitDateDisplay.addEventListener('click', () => {
   }
 });
 todayBtn.addEventListener('click', () => {
+  if (!requireNurseSession()) return;
   selectedVisitDate = new Date();
   if (searchScope === 'all'){
     searchScope = 'today';
@@ -8238,6 +8623,7 @@ todayBtn.addEventListener('click', () => {
   subscribeToSelectedDate();
 });
 visitDateInput.addEventListener('change', () => {
+  if (!requireNurseSession()) return;
   const [year,month,day] = visitDateInput.value.split('-').map(Number);
   if (year && month && day) selectedVisitDate = new Date(year,month-1,day);
   if (searchScope === 'all'){
@@ -8249,11 +8635,13 @@ visitDateInput.addEventListener('change', () => {
   subscribeToSelectedDate();
 });
 visitToggle.addEventListener('click', event => {
+  if (!requireNurseSession()) return;
   const button = event.target.closest('[data-visit-type]');
   if (!button) return;
   setVisitType(button.dataset.visitType);
 });
 mobileVisitToggle.addEventListener('click', event => {
+  if (!requireNurseSession()) return;
   const button = event.target.closest('[data-mobile-visit-type]');
   if (!button) return;
   setVisitType(button.dataset.mobileVisitType);
@@ -8358,8 +8746,8 @@ searchScopeToggle.addEventListener('click', event => {
   if (!button) return;
   setSearchScope(button.dataset.searchScope);
 });
-mobileMenuBtn.addEventListener('click', openMobileSidebar);
-mobileListBtn.addEventListener('click', openMobileSidebar);
+mobileMenuBtn.addEventListener('click', () => { if (requireNurseSession()) openMobileSidebar(); });
+mobileListBtn.addEventListener('click', () => { if (requireNurseSession()) openMobileSidebar(); });
 mobileSidebarSettingsBtn?.addEventListener('click', event => {
   event.stopPropagation();
   appShell.classList.add('mobile-settings-open');
@@ -8367,6 +8755,7 @@ mobileSidebarSettingsBtn?.addEventListener('click', event => {
 });
 mobileSidebarBackBtn?.addEventListener('click', closeMobileSidebar);
 mobileHomeBtn.addEventListener('click', () => {
+  if (!requireNurseSession()) return;
   closeMobileSidebar();
   showMobileHomeScreen();
 });
@@ -8403,6 +8792,11 @@ function handleDocumentModeAction(mode){
 }
 
 document.addEventListener('click', event => {
+  const nurseSignInButton = event.target.closest('[data-nurse-signin]');
+  if (nurseSignInButton){
+    startNurseQrScanner();
+    return;
+  }
   const scannedTemplateButton = event.target.closest('[data-scanned-template-mode]');
   if (scannedTemplateButton){
     const sourceRecord = records[activeIndex];
@@ -8784,6 +9178,34 @@ document.addEventListener('click', (e) => {
   if (!emailMenu.contains(e.target) && e.target !== emailMenuBtn){
     closeEmailMenu();
   }
+  if (!nurseIdentity.contains(e.target)){
+    nurseIdentity.classList.remove('open');
+    nurseIdentityBtn?.setAttribute('aria-expanded','false');
+  }
+});
+
+nurseIdentityBtn.addEventListener('click', event => {
+  event.stopPropagation();
+  const isOpen = nurseIdentity.classList.toggle('open');
+  nurseIdentityBtn.setAttribute('aria-expanded', String(isOpen));
+});
+nurseLogoutBtn.addEventListener('click', () => {
+  clearNurseSession();
+  clearNotesSubscriptions();
+  clearAllNotesSubscriptions();
+  records = [];
+  allRecords = [];
+  closeContinuationDock();
+  showNurseSignInScreen();
+});
+nurseQrCloseBtn.addEventListener('click', closeNurseQrModal);
+nurseQrCancelBtn.addEventListener('click', closeNurseQrModal);
+nurseQrModal.addEventListener('click', event => { if (event.target === nurseQrModal) closeNurseQrModal(); });
+nurseQrManualBtn.addEventListener('click', () => handleNurseQrText(nurseQrManualInput.value));
+nurseQrManualInput.addEventListener('keydown', event => {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  handleNurseQrText(nurseQrManualInput.value);
 });
 
 signoutBtn.addEventListener('click', async () => {
@@ -8947,7 +9369,7 @@ credentialSaveBtn.addEventListener('click', async () => {
     userEmail.textContent = displayCredentialName(credentialName);
     credentialSaveBtn.textContent = 'Saved';
     setTimeout(() => {
-      credentialSaveBtn.textContent = 'Save name';
+      credentialSaveBtn.textContent = 'Save device';
       credentialSaveBtn.disabled = false;
       closeCredentialModal();
     }, 700);
@@ -8981,6 +9403,7 @@ saveDraftBtn.addEventListener('click', async () => {
   updateDischargeButton(draft);
   renderEntries();
   await persistRecord(draft,{
+    ...nurseFields(),
     kind:'generated',
     voiceDraft:false,
     isDraft:false,
@@ -9080,7 +9503,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=171', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=193', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nurse WOYZ QR Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;600;700;800;900&family=IBM+Plex+Mono:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#F4F5F3;--panel:#fff;--border:#E2E5E1;--ink:#1B231F;--muted:#6E786F;--teal:#1F5F52;--teal-deep:#153F37;--red:#D6472F;}
+  *{box-sizing:border-box;}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;}
+  .shell{min-height:100vh;display:grid;grid-template-columns:minmax(320px,420px) minmax(0,1fr);gap:22px;padding:28px;}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:24px;box-shadow:0 18px 48px -38px rgba(20,35,29,.45);}
+  .brand{display:inline-flex;align-items:center;gap:10px;margin-bottom:22px;padding:8px 16px 8px 10px;border:4px solid #F45155;border-radius:999px;background:#17171D;color:#fff;font-weight:900;font-size:24px;letter-spacing:.8px;}
+  .brand-dot{width:28px;height:28px;border-radius:50%;background:#F45155;border:7px solid #452126;}
+  h1{margin:0 0 8px;font:600 30px Fraunces,serif;}
+  p{margin:0 0 22px;color:var(--muted);line-height:1.45;}
+  label{display:block;margin:16px 0 7px;font-size:12px;font-weight:900;}
+  input{width:100%;height:46px;border:1.5px solid var(--border);border-radius:11px;padding:0 13px;font:700 14px Inter,sans-serif;outline:none;}
+  input:focus{border-color:#8FB9AC;box-shadow:0 0 0 3px rgba(143,185,172,.2);}
+  .qr-panel{display:grid;place-items:center;text-align:center;}
+  .qr-box{width:min(420px,100%);display:grid;justify-items:center;gap:16px;}
+  canvas{width:min(320px,76vw)!important;height:min(320px,76vw)!important;background:#fff;border:1px solid var(--border);border-radius:8px;padding:12px;}
+  .identity{min-height:54px;}
+  .name{font-weight:900;font-size:20px;}
+  .emp{margin-top:4px;color:var(--muted);font:900 14px "IBM Plex Mono",monospace;}
+  .download{min-height:44px;border:0;border-radius:12px;background:var(--teal);color:#fff;padding:0 18px;font:900 14px Inter,sans-serif;cursor:pointer;}
+  .download:hover{background:var(--teal-deep);}
+  .download:disabled{opacity:.45;cursor:not-allowed;}
+  .status{min-height:18px;color:var(--red);font:800 12px Inter,sans-serif;}
+  @media(max-width:760px){.shell{grid-template-columns:1fr;padding:16px}.panel{padding:20px}.qr-panel{min-height:420px;}}
+</style>
+</head>
+<body>
+<main class="shell">
+  <section class="panel">
+    <div class="brand"><span class="brand-dot"></span>Nurse WOYZ</div>
+    <h1>Nurse QR generator</h1>
+    <p>Create registered nurse QR codes for signing in on the recording and admin pages.</p>
+    <label for="nurseName">Name of registered nurse</label>
+    <input id="nurseName" autocomplete="name" placeholder="Registered nurse name">
+    <label for="employeeId">Employee ID</label>
+    <input id="employeeId" autocomplete="off" placeholder="Employee ID">
+  </section>
+  <section class="panel qr-panel">
+    <div class="qr-box">
+      <canvas id="qrCanvas" width="320" height="320" aria-label="Generated nurse QR code"></canvas>
+      <div class="identity">
+        <div class="name" id="displayName">Enter nurse name</div>
+        <div class="emp" id="displayEmployee">Employee ID</div>
+      </div>
+      <button class="download" id="downloadBtn" type="button" disabled>Download QR code</button>
+      <div class="status" id="status"></div>
+    </div>
+  </section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+<script>
+const nurseName = document.getElementById('nurseName');
+const employeeId = document.getElementById('employeeId');
+const qrCanvas = document.getElementById('qrCanvas');
+const displayName = document.getElementById('displayName');
+const displayEmployee = document.getElementById('displayEmployee');
+const downloadBtn = document.getElementById('downloadBtn');
+const statusEl = document.getElementById('status');
+
+function qrText(){
+  const name = nurseName.value.trim();
+  const id = employeeId.value.trim();
+  return name && id ? `${name}, ${id}` : '';
+}
+
+function clearCanvas(){
+  const ctx = qrCanvas.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, qrCanvas.width, qrCanvas.height);
+}
+
+async function renderQr(){
+  const name = nurseName.value.trim();
+  const id = employeeId.value.trim();
+  displayName.textContent = name || 'Enter nurse name';
+  displayEmployee.textContent = id || 'Employee ID';
+  downloadBtn.disabled = true;
+  statusEl.textContent = '';
+  if (!name || !id){
+    clearCanvas();
+    return;
+  }
+  if (!window.QRCode){
+    statusEl.textContent = 'QR library could not load. Check internet connection and refresh.';
+    clearCanvas();
+    return;
+  }
+  await QRCode.toCanvas(qrCanvas, qrText(), {width:320, margin:2, errorCorrectionLevel:'M'});
+  downloadBtn.disabled = false;
+}
+
+nurseName.addEventListener('input', renderQr);
+employeeId.addEventListener('input', renderQr);
+downloadBtn.addEventListener('click', () => {
+  const name = nurseName.value.trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'nurse';
+  const id = employeeId.value.trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'id';
+  const link = document.createElement('a');
+  link.download = `nurse-woyz-${name}-${id}.png`;
+  link.href = qrCanvas.toDataURL('image/png');
+  link.click();
+});
+clearCanvas();
+</script>
+</body>
+</html>
