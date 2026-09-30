@@ -1,10 +1,11 @@
-const CACHE_NAME = 'nurse-woyz-v193';
+const CACHE_NAME = 'nurse-woyz-v194';
 const APP_SHELL = [
   './',
   './index.html',
   './user.html',
   './admin.html',
   './qr-generator.html',
+  './vendor/qrcode-generator.js',
   './master-admin.html',
   './demo.html',
   './firebase-config.js',

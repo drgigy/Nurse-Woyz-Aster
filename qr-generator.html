@@ -55,7 +55,7 @@
     </div>
   </section>
 </main>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
+<script src="vendor/qrcode-generator.js"></script>
 <script>
 const nurseName = document.getElementById('nurseName');
 const employeeId = document.getElementById('employeeId');
@@ -88,12 +88,32 @@ async function renderQr(){
     clearCanvas();
     return;
   }
-  if (!window.QRCode){
-    statusEl.textContent = 'QR library could not load. Check internet connection and refresh.';
+  if (!window.qrcode){
+    statusEl.textContent = 'QR generator could not load. Please refresh.';
     clearCanvas();
     return;
   }
-  await QRCode.toCanvas(qrCanvas, qrText(), {width:320, margin:2, errorCorrectionLevel:'M'});
+  qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+  const qr = qrcode(0, 'M');
+  qr.addData(qrText(), 'Byte');
+  qr.make();
+  const ctx = qrCanvas.getContext('2d');
+  const size = qrCanvas.width;
+  const quiet = 4;
+  const modules = qr.getModuleCount();
+  const cell = Math.floor(size / (modules + quiet * 2));
+  const qrSize = cell * modules;
+  const offset = Math.floor((size - qrSize) / 2);
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = '#000';
+  for (let row = 0; row < modules; row += 1){
+    for (let col = 0; col < modules; col += 1){
+      if (qr.isDark(row, col)){
+        ctx.fillRect(offset + col * cell, offset + row * cell, cell, cell);
+      }
+    }
+  }
   downloadBtn.disabled = false;
 }
 
