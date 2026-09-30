@@ -1338,6 +1338,26 @@
     border-color:var(--teal);
     color:#fff;
   }
+  .scan-confirm-card{
+    width:min(360px,100%);
+    display:grid;
+    justify-items:center;
+    gap:14px;
+  }
+  .scan-patient-identity{
+    display:grid;
+    gap:6px;
+    margin-bottom:6px;
+  }
+  .scan-patient-name{
+    color:var(--ink);
+    font:900 22px/1.15 'Inter',sans-serif;
+  }
+  .scan-patient-uhid,
+  .scan-patient-meta{
+    color:var(--muted);
+    font:800 14px/1.3 'Inter',sans-serif;
+  }
   .home-tools-wrap{
     display:none;
   }
@@ -2943,7 +2963,7 @@ const GEMINI_PROMPTS = {
   'Reply letter':`You are a clinical reply letter drafting assistant. The nurse states the patient name, age, and UHID at the beginning; extract these identifiers into their JSON fields and exclude the opening identification from the letter unless it belongs naturally in the clinical content. Create a clean reply letter from only the dictated audio. Correct spelling and grammar and make sentences complete. Do not add, infer, assume, hallucinate, recommend, or remove any clinical information. Use a polite professional letter style and keep the original meaning exactly. The text must begin exactly with "To," followed by the dictated recipient name, credentials, department, hospital, or address, each on its own line when dictated. Leave one blank line before the main paragraphs. Do not use a salutation or a Reply Letter heading. End with "Thank you" one blank line below the final paragraph. Do not include sender credentials, signature, or footer. If a detail is not dictated, omit it; do not write placeholders or "Not dictated". Return only the requested JSON object.`,
   'Medical certificate':`You are an expert medical certificate drafting assistant. The nurse states the patient name, age, and UHID at the beginning; extract them exactly into their JSON fields. Create a clean medical certificate from only the dictated audio. Correct spelling and grammar and make sentences complete. Do not add, infer, assume, hallucinate, recommend, or remove any clinical or administrative information. Use a simple certificate style. Use today's date only when no date is dictated. The certificateBody must begin with "This is to certify that" and contain one or more clear paragraphs. Include patient details only if dictated or provided in the JSON patient fields. If dates, rest period, diagnosis, fitness, restrictions, or purpose are dictated, include them exactly. If a detail is not dictated, omit it; do not write placeholders or "Not dictated". Do not include "To whomsoever it may concern", "Thank you", nurse credentials, or a signature in certificateBody. Return only the requested JSON object.`
 };
-GEMINI_PROMPTS['Progress Note'] = GEMINI_PROMPTS['Review dictation'];
+GEMINI_PROMPTS['Progress Note'] = `You are an expert ER nursing transcription assistant. The nurse states the patient name, age, and UHID at the beginning; extract these identifiers into their JSON fields and do not repeat that opening identification in the text unless clinically necessary. Convert the remaining Malayalam, English, or Kerala Manglish dictation into a free-flowing professional nursing progress note. Preserve every clearly dictated clinical fact, chronology, medicine, dose, investigation, value, nursing care, patient response, doctor communication, advice, instruction, and pending task exactly as dictated. Correct spelling, grammar, and punctuation, but never invent, infer, recommend, add, summarize, shorten, or remove clinical information. Do not force the note into headings or template sections. Keep each distinct sentence or dictated statement on a new line. Return only the requested JSON object.`;
 GEMINI_PROMPTS['Handover Note'] = GEMINI_PROMPTS['Review dictation'];
 GEMINI_PROMPTS['ER Assessment Note'] = GEMINI_PROMPTS['Review dictation'];
 
@@ -3113,22 +3133,7 @@ Thank you`;
 const PROGRESS_NOTE_TEMPLATE = `Patient Name: NIL
 Age: NIL
 UHID: NIL
-Sex: NIL
-
-Progress Note:
-NIL
-
-Vitals:
-NIL
-
-Nursing Care / Interventions:
-NIL
-
-Response / Current Status:
-NIL
-
-Plan / Pending:
-NIL`;
+Sex: NIL`;
 
 const HANDOVER_NOTE_TEMPLATE = `Patient Name: NIL
 Age: NIL
@@ -3180,9 +3185,7 @@ Pending / Handover:
 NIL`;
 
 const NURSE_NOTE_TEMPLATES = [
-  {mode:'Progress Note', label:'Progress note'},
-  {mode:'Handover Note', label:'Handover note'},
-  {mode:'ER Assessment Note', label:'ER assessment'}
+  {mode:'Progress Note', label:'Progress note'}
 ];
 
 function normalizeScannerText(value){
@@ -5181,12 +5184,39 @@ function renderScannedTemplateChooser(record){
   dischargeBtn.classList.remove('visible');
   mainScroll.innerHTML = `
     <div class="empty-state">
-      <div class="empty-title">Select a template</div>
-      <div class="empty-sub">${escapeHtml(displayPatientName(record))} · UHID ${escapeHtml(identity.uhid || 'NIL')}</div>
-      <div class="home-tool-actions" aria-label="Nurse note templates">
+      <div class="scan-confirm-card">
+        <div class="scan-patient-identity" aria-label="Scanned patient">
+          <div class="scan-patient-name">${escapeHtml(displayPatientName(record))}</div>
+          <div class="scan-patient-uhid">UHID ${escapeHtml(identity.uhid || 'NIL')}</div>
+          <div class="scan-patient-meta">${escapeHtml([identity.age && identity.age !== 'NIL' ? `${identity.age} yrs` : '', identity.sex && identity.sex !== 'NIL' ? identity.sex : ''].filter(Boolean).join(' · ') || 'Age / sex not found')}</div>
+        </div>
+        <div class="home-tool-actions" aria-label="Nurse note templates">
         ${NURSE_NOTE_TEMPLATES.map(template => `<button class="home-tool-btn primary" type="button" data-scanned-template-mode="${escapeHtml(template.mode)}">${escapeHtml(template.label)}</button>`).join('')}
+          <button class="home-tool-btn" type="button" data-scan-again>Scan again</button>
+        </div>
       </div>
     </div>`;
+}
+
+async function rescanFromCredentialChooser(){
+  const record = records[activeIndex];
+  lastHandledScannerSignature = '';
+  lastHandledScannerAt = 0;
+  if (mobileScanCapture) mobileScanCapture.value = '';
+  const shouldDiscard = record?.patientCredential && record.firestoreId && !record.everSaved && !record.transcription;
+  if (record?.patientCredential && record.firestoreId && !record.everSaved && !record.transcription){
+    const key = recordLocalKey(record);
+    records = records.filter(candidate => recordLocalKey(candidate) !== key);
+    allRecords = allRecords.filter(candidate => recordLocalKey(candidate) !== key);
+  }
+  showMobileHomeScreen();
+  if (shouldDiscard){
+    try{
+      await deleteDoc(noteDocRef(record));
+    }catch(error){
+      console.warn('Unable to discard scanned credential draft:', error);
+    }
+  }
 }
 
 function updateContinueNoteButton(){
@@ -7612,7 +7642,7 @@ async function sendAudioToGemini(audioBlob, apiKey, selectedMode, onRetry, visit
   const taskPrompts = {
     ambient:`Review the complete nurse-patient-attendant recording and produce a mutually consistent structured ${visitContext} visit note from all clearly audible clinical conversation, not only from formal dictated note phrases. Extract clinically relevant facts that are actually present in the ambient conversation and place them under the correct sections. Never infer missing details, never hallucinate, and never add or remove clinical facts. Use NIL for unsupported fields. In Review of Investigations, preserve investigation content fully and verbatim in meaning; never add, remove, shorten, summarize, or make it concise. Use numbered lists for Review of Investigations and Current Medications, with each numbered investigation or medicine starting on a new line. For investigation reports with multiple findings, place each finding on a separate unnumbered line below the numbered investigation. For blood investigations, use one numbered item per blood-report date and list the individual blood values below it without numbering, adding standard units when absent. In Treatment Plan, number only complete treatment actions. Do not split medicine dose, route, timing, frequency, or duration into separate numbered items.${visitContext === 'OP' ? ' Include a Prescription section only when the nurse explicitly dictates a prescription/Rx section or clearly says the following medicines are prescription/Rx medicines. Do not duplicate medicines from Current Medications, Treatment Plan, advice, or treatment changes into Prescription. In Prescription, each medicine must have exactly three lines: numbered Tablet/Cap/Syrup/Inj brand name dose; English patient instruction without repeating the medicine name; natural patient-friendly Kerala Malayalam instruction without repeating the medicine name. Always include the Malayalam instruction line for every prescription medicine. Do not label the Malayalam line. Always write Tablet, not Tab. Do not include demographics inside Prescription.' : ' Do not create a Prescription section for IP notes.'}`,
     'Review dictation':'Transcribe the recording faithfully. Correct only grammar, spelling, and punctuation. Do not add, remove, or infer clinical content.',
-    'Progress Note':'Create a concise ER nursing progress note from only clearly dictated content. Preserve clinical meaning exactly. Include status updates, symptoms, vitals, nursing care or interventions, patient response/current status, doctor communication, and pending plan when dictated. Do not infer missing details. Return text only in the JSON text field.',
+    'Progress Note':'Create a free-flowing ER nursing progress note from only clearly dictated content. Preserve clinical meaning exactly. Do not use template headings, section labels, or bullets unless the nurse explicitly dictates them. Keep each distinct sentence or dictated statement on a new line. Do not infer missing details. Return text only in the JSON text field.',
     'Handover Note':'Create a concise ER nursing handover note from only clearly dictated content. Use SBAR-style organization when possible: Situation, Background, Assessment, Recommendation/Pending Tasks. Preserve all dictated clinical details, medicines, vitals, timelines, doctor orders, and pending work exactly in meaning. Do not infer missing details. Return text only in the JSON text field.',
     'ER Assessment Note':'Create a structured ER nursing assessment note from only clearly dictated content. Include arrival/triage context, presenting complaint, vitals, nursing assessment, immediate care given, doctor informed/orders, and pending/handover items when dictated. Do not infer or add missing details. Return text only in the JSON text field.',
     'Reply letter':'Draft a polite professional reply letter using only clearly dictated facts. Begin the letter text with "To," and end with "Thank you". Omit undictated details and do not add, remove, or infer clinical content.',
@@ -7738,7 +7768,10 @@ async function generateContentWithRetry({apiKey,audioBlob,audioData,systemPrompt
 
 function formatGeneratedOutput(data, mode, patient, visitType = selectedVisitType){
   const patientHeader = `Patient Name: ${patient.name}\nAge: ${patient.age}\nUHID: ${patient.uhid}`;
-  if (['Progress Note','Handover Note','ER Assessment Note'].includes(mode)){
+  if (mode === 'Progress Note'){
+    return `${patientHeader}\nSex: ${patient.sex || data.patientSex || 'NIL'}\n\n${formatFreeFlowProgressNote(data.text)}`.trim();
+  }
+  if (['Handover Note','ER Assessment Note'].includes(mode)){
     return `${patientHeader}\nSex: ${patient.sex || data.patientSex || 'NIL'}\n\n${formatNursingTemplateOutput(mode, data.text)}`.trim();
   }
   if (mode === 'Review dictation' || mode === 'Reply letter'){
@@ -7762,6 +7795,36 @@ function formatGeneratedOutput(data, mode, patient, visitType = selectedVisitTyp
   ];
   if (visitType === 'OP') sections.push(['Prescription',data.prescription]);
   return `${patientHeader}\nSex: ${patient.sex || data.patientSex || 'NIL'}\n\n${sections.map(([label,value])=>`${label}:\n${formatSectionValue(label,value)}`).join('\n\n')}`;
+}
+
+function formatFreeFlowProgressNote(text){
+  const source = String(text || '').replace(/\r\n/g, '\n').trim();
+  if (!source || isNilLike(source)) return 'NIL';
+  const protectedDots = [
+    ['Dr.', 'Dr<dot>'],
+    ['Mr.', 'Mr<dot>'],
+    ['Mrs.', 'Mrs<dot>'],
+    ['Ms.', 'Ms<dot>'],
+    ['Sr.', 'Sr<dot>'],
+    ['Jr.', 'Jr<dot>'],
+    ['No.', 'No<dot>']
+  ];
+  let normalized = source;
+  protectedDots.forEach(([from, to]) => {
+    normalized = normalized.replace(new RegExp(escapeRegExp(from), 'g'), to);
+  });
+  normalized = normalized
+    .split('\n')
+    .flatMap(line => line
+      .split(/(?<=[.!?])\s+(?=[A-Z0-9])/)
+      .map(part => part.trim())
+      .filter(Boolean)
+    )
+    .join('\n');
+  protectedDots.forEach(([from, to]) => {
+    normalized = normalized.replace(new RegExp(escapeRegExp(to), 'g'), from);
+  });
+  return normalized.replace(/\n{3,}/g, '\n\n').trim();
 }
 
 function nursingTemplateSections(mode){
@@ -8797,6 +8860,11 @@ document.addEventListener('click', event => {
     startNurseQrScanner();
     return;
   }
+  const scanAgainButton = event.target.closest('[data-scan-again]');
+  if (scanAgainButton){
+    rescanFromCredentialChooser();
+    return;
+  }
   const scannedTemplateButton = event.target.closest('[data-scanned-template-mode]');
   if (scannedTemplateButton){
     const sourceRecord = records[activeIndex];
@@ -9503,7 +9571,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=194', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=195', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
