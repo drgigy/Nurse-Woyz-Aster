@@ -7415,6 +7415,7 @@ function appendTextToRecord(record, text, {review = false, scrollToAppended = fa
   record.transcription = `${baseText}\n\n${appendedText}`.trim();
   record.patientData = extractPatientFromNote(record.transcription, record.patientData);
   record.saved = false;
+  mobileHomeDefaultActive = false;
   markRecordDirty(record);
   syncRecordCollections(record);
   persistRecord(record,{
@@ -7424,7 +7425,7 @@ function appendTextToRecord(record, text, {review = false, scrollToAppended = fa
     updatedAt:serverTimestamp()
   }).catch(error => {
     console.error('Appended note save failed:', error);
-    showToast('Review note added locally, but saving is pending.');
+    showToast('Add-on text added locally, but saving is pending.');
   });
   clearTimeout(saveFeedbackTimer);
   saveFeedbackUntil = 0;
@@ -9599,8 +9600,7 @@ saveDraftBtn.addEventListener('click', async () => {
   clearRecordDirty(draft);
   flashSaveButton();
   if (isMobileViewport()){
-    renderGeneratedNote(draft);
-    flashSaveButton();
+    setTimeout(() => showMobileHomeScreen(), 350);
   }
 });
 
@@ -9686,7 +9686,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=215', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=216', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
