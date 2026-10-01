@@ -4113,6 +4113,7 @@ function renderOpPatientTimeline(key, entryId = selectedOpTimelineEntryId || 'al
           </div>
         </div>
         ${renderedNotes}
+        <button class="mobile-review-inline visible" data-add-on-note type="button" aria-label="Add more dictated text to selected note">Add-on</button>
       </section>
     </div>`;
   mainScroll.querySelectorAll('[data-op-all-entry-editor]').forEach(editor => {
@@ -5631,6 +5632,7 @@ function selectEntry(i,{preserveDirtyEditor = false} = {}){
           </div>
         `).join('')}
       </div>
+      <button class="mobile-review-inline visible" data-add-on-note type="button" aria-label="Add more dictated text to selected note">Add-on</button>
     </div>
   `;
 }
@@ -8953,6 +8955,11 @@ function handleDocumentModeAction(mode){
 }
 
 document.addEventListener('click', event => {
+  const addOnButton = event.target.closest('[data-add-on-note]');
+  if (addOnButton){
+    openContinuationDock();
+    return;
+  }
   const nurseSignInButton = event.target.closest('[data-nurse-signin]');
   if (nurseSignInButton){
     startNurseQrScanner();
@@ -9679,7 +9686,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=214', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=215', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
