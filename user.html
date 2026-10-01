@@ -5336,6 +5336,7 @@ onAuthStateChanged(auth,user => {
     appShell.classList.add('authenticated');
     userEmail.textContent = '';
     currentNurse = readStoredNurse();
+    if (currentNurse) persistActiveNurseSession(currentNurse);
     updateNurseSessionUi();
     userProfileUnsubscribe = onSnapshot(doc(db,'users',user.uid), snapshot => {
       const profile = snapshot.data() || {};
@@ -9558,7 +9559,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=201', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=202', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);

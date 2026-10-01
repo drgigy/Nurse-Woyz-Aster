@@ -39,7 +39,7 @@
   .btn:hover{ background:#F6F7F5; }
   .btn:active{ transform:scale(.97); }
   .app{ display:none; height:100vh; min-height:0; overflow:hidden; }
-  .app.authenticated{ display:grid; grid-template-columns:296px minmax(0,1fr) 76px; }
+  .app.authenticated{ display:grid; grid-template-columns:296px minmax(0,1fr); }
   .sidebar{ background:var(--panel); border-right:1px solid var(--border); display:flex; flex-direction:column; padding:20px 16px; min-width:0; min-height:0; overflow:hidden; }
   .admin-brand{ height:58px; display:flex; align-items:center; gap:12px; margin-bottom:24px; }
   .admin-brand-pill{ height:58px; border:3px solid #F45155; border-radius:999px; background:#17171D; color:#fff; display:flex; align-items:center; justify-content:center; gap:11px; padding:0 18px 0 14px; font-weight:800; font-size:24px; letter-spacing:1.1px; }
@@ -47,6 +47,7 @@
   .admin-brand-word{ font-size:24px; font-weight:800; color:var(--ink); letter-spacing:0; }
   .sidebar-section-label{ color:#7C847C; font-weight:800; font-size:11px; letter-spacing:.09em; text-transform:uppercase; margin:10px 4px 12px; }
   .sidebar .visit-toggle{ height:44px; margin:0 4px 16px; justify-content:center; }
+  .sidebar > .visit-toggle{ display:none !important; }
   .sidebar .visit-toggle-btn{ height:34px; flex:1; font-size:13px; }
   .entry-list{ flex:1; min-height:0; display:flex; flex-direction:column; gap:8px; overflow:auto; overscroll-behavior:contain; padding-right:2px; }
   .entry{ position:relative; width:100%; border:1px solid transparent; background:transparent; border-radius:12px; padding:12px 38px 12px 12px; display:flex; align-items:center; gap:12px; cursor:pointer; text-align:left; color:var(--ink); }
@@ -180,6 +181,7 @@
   .empty-state{ height:100%; display:flex; align-items:center; justify-content:center; flex-direction:column; color:var(--muted); text-align:center; padding:32px; }
   .empty-title{ font:600 30px 'Fraunces',serif; color:#1E2521; margin-bottom:8px; }
   .user-rail{ width:76px; min-height:0; border-left:1px solid var(--border); background:#FAFBF9; display:flex; flex-direction:column; align-items:center; padding:14px 8px; gap:8px; overflow:auto; overscroll-behavior:contain; }
+  .user-rail{ display:none !important; }
   .rail-label{ color:#7C847C; font-size:10px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; margin:4px 0 8px; }
   .user-pill{ width:54px; min-height:38px; border:1px solid var(--teal); border-radius:12px; background:var(--teal); color:#fff; font:800 12px 'Inter',sans-serif; cursor:pointer; }
   .user-pill:hover{ background:var(--teal-deep); border-color:var(--teal-deep); }
@@ -210,7 +212,7 @@
   .qr-manual-row{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:12px;}
   .qr-status{min-height:18px;color:var(--muted);font:800 12px 'Inter',sans-serif;margin-top:10px;}
   @media (max-width:900px){
-    .app.authenticated{ grid-template-columns:240px 1fr 66px; }
+    .app.authenticated{ grid-template-columns:240px minmax(0,1fr); }
     .sidebar{ padding:16px 12px; }
     .main-scroll{ padding:26px 24px 70px; }
     .note-editor .rx-row{
@@ -1561,7 +1563,7 @@ onAuthStateChanged(auth, async user => {
     console.warn('Unable to update admin email:', error);
   }).then(() => getDoc(profileRef)).then(snapshot => {
     const profile = snapshot.data() || {};
-    const ownerIds = Array.from(new Set([...(profile.sharedWith || []), ...(profile.adminSharedWith || [])]));
+    const ownerIds = Array.from(new Set([user.uid, ...(profile.sharedWith || []), ...(profile.adminSharedWith || [])]));
     const adminGroupIds = Array.isArray(profile.adminGroupIds) ? profile.adminGroupIds : [];
     if (!ownerIds.length && !adminGroupIds.length){
       appShell.classList.remove('authenticated');
@@ -2064,7 +2066,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=201', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=202', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
