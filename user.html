@@ -4965,7 +4965,6 @@ function closeMobileSidebar(){
 
 function openMobileSidebar(){
   stopMobileScannerFocusLoop();
-  forceMobileTodayScope({reload:true});
   appShell.classList.add('sidebar-open');
 }
 
@@ -5234,7 +5233,6 @@ function showMobileHomeScreen(){
   activeIndex = null;
   mobileHomeDefaultActive = true;
   clearTimelineSelection();
-  forceMobileTodayScope({reload:true});
   updateContinueNoteButton();
   topbarPatient.classList.remove('visible');
   copyBtn.style.display = 'none';
@@ -9681,7 +9679,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=213', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=214', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
