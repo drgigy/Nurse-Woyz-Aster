@@ -398,6 +398,7 @@ let nurseQrDetector = null;
 let nurseQrScanFrame = null;
 
 const NURSE_SESSION_STORAGE_PREFIX = 'nurse_woyz_admin_active_nurse_';
+const USER_NURSE_SESSION_STORAGE_PREFIX = 'nurse_woyz_active_nurse_';
 
 const DEFAULT_PRESCRIPTION_LAYOUT = {
   includeMalayalam:true,
@@ -412,6 +413,10 @@ function escapeHtml(value){
 
 function nurseSessionStorageKey(){
   return `${NURSE_SESSION_STORAGE_PREFIX}${currentAdminUid || 'anonymous'}`;
+}
+
+function userNurseSessionStorageKey(){
+  return `${USER_NURSE_SESSION_STORAGE_PREFIX}${currentAdminUid || 'anonymous'}`;
 }
 
 function normalizeNurseToken(value){
@@ -436,7 +441,8 @@ function parseNurseQrText(value){
 
 function readStoredNurse(){
   try{
-    const parsed = JSON.parse(localStorage.getItem(nurseSessionStorageKey()) || 'null');
+    const parsed = JSON.parse(localStorage.getItem(nurseSessionStorageKey()) || localStorage.getItem(userNurseSessionStorageKey()) || 'null');
+    if (parsed?.name && parsed?.employeeId && parsed?.key) storeNurseSession(parsed);
     return parsed?.name && parsed?.employeeId && parsed?.key ? parsed : null;
   }catch(error){
     return null;
@@ -2010,7 +2016,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=197', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=198', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);

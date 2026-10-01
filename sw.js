@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nurse-woyz-v197';
+const CACHE_NAME = 'nurse-woyz-v198';
 const APP_SHELL = [
   './',
   './index.html',
