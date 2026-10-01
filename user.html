@@ -450,6 +450,8 @@
   .date-nav{ display:flex; align-items:center; gap:7px; flex-shrink:0; }
   .visit-toggle{ height:38px; display:flex; align-items:center; gap:4px; padding:4px; border:1px solid #D8E1E7; border-radius:10px; background:#fff; flex-shrink:0; }
   .sidebar .visit-toggle{ height:36px; margin:10px 4px 0; justify-content:center; }
+  .sidebar > .visit-toggle,
+  .sidebar .search-scope-toggle{ display:none !important; }
   .visit-toggle-btn{ height:28px; min-width:38px; border:0; border-radius:7px; background:transparent; color:var(--muted); font:800 12px 'Inter',sans-serif; cursor:pointer; }
   .sidebar .visit-toggle-btn{ height:28px; flex:1; font-size:12px; }
   .visit-toggle-btn.active{ background:var(--teal); color:#fff; }
@@ -9574,7 +9576,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=196', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=197', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
