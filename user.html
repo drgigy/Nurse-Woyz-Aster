@@ -9569,6 +9569,7 @@ saveDraftBtn.addEventListener('click', async () => {
   draft.admissionDate = admissionDate;
   draft.adminCopiedAt = null;
   draft.adminCopiedBy = null;
+  mobileHomeDefaultActive = false;
   deleteBtn.classList.toggle('visible', canDeleteRecord(draft));
   updateDischargeButton(draft);
   renderEntries();
@@ -9593,7 +9594,8 @@ saveDraftBtn.addEventListener('click', async () => {
   clearRecordDirty(draft);
   flashSaveButton();
   if (isMobileViewport()){
-    setTimeout(() => showMobileHomeScreen(), 350);
+    renderGeneratedNote(draft);
+    flashSaveButton();
   }
 });
 
@@ -9679,7 +9681,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=212', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=213', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
