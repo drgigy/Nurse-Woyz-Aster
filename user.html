@@ -460,8 +460,8 @@
   #copyBtn,
   #printWrap,
   #emailWrap,
-  #mobileCopyBtn,
   #layoutBtn{ display:none !important; }
+  .mobile-scan-capture{ display:none !important; }
   .visit-toggle-btn{ height:28px; min-width:38px; border:0; border-radius:7px; background:transparent; color:var(--muted); font:800 12px 'Inter',sans-serif; cursor:pointer; }
   .sidebar .visit-toggle-btn{ height:28px; flex:1; font-size:12px; }
   .visit-toggle-btn.active{ background:var(--teal); color:#fff; }
@@ -2295,10 +2295,15 @@
       color:#fff;
     }
     .mobile-action.primary{
-      display:none;
+      background:var(--teal);
+      border-color:var(--teal-deep);
+      color:#fff;
+      box-shadow:0 4px 10px -7px var(--teal-deep);
     }
-    #mobileAddNoteBtn{
-      display:none;
+    .mobile-action.reviewed{
+      background:#1F6F5D;
+      border-color:#155143;
+      color:#fff;
     }
     .continue-note-btn{
       right:18px;
@@ -2329,7 +2334,7 @@
 
 <section class="login-screen" id="loginScreen">
   <form class="login-card" id="loginForm">
-    <div class="login-brand"><span class="login-brand-pill"><span class="login-brand-dot"></span>Nurse WOYZ</span><span>Notes</span></div>
+    <div class="login-brand"><span class="login-brand-pill"><span class="login-brand-dot"></span>Nurse WOYZ</span></div>
     <h1 class="login-title">Sign in</h1>
     <label class="login-label" for="loginEmail">Email address</label>
     <input class="login-input" id="loginEmail" type="email" autocomplete="username" required>
@@ -2493,7 +2498,7 @@
         <div class="empty-sub">Select Progress note and dictate the patient credentials followed by the nursing note.</div>
       </div>
     </div>
-    <textarea class="mobile-scan-capture" id="mobileScanCapture" enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="OCR scan capture"></textarea>
+    <textarea class="mobile-scan-capture" id="mobileScanCapture" enterkeyhint="done" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Inactive scan capture"></textarea>
   </main>
 
   <div class="nurse-identity" id="nurseIdentity">
@@ -2507,19 +2512,13 @@
   </div>
 
   <nav class="mobile-bottom-actions hidden" id="mobileBottomActions" aria-label="Note actions">
-    <button class="mobile-action" id="mobileCopyBtn" aria-label="Copy note">
-      Copy
+    <button class="mobile-action" id="mobileEmrBtn" aria-label="Send to EMR">
+      Send to EMR
     </button>
-    <button class="mobile-action" id="mobileReviewBtn" aria-label="Review note dictation">
-      Review Note
+    <button class="mobile-action" id="mobileReviewBtn" aria-label="Mark note reviewed">
+      Review
     </button>
-    <button class="mobile-action primary" id="mobileRecordBtn" aria-label="Voice note">
-      <svg width="31" height="31" viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="2"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-    </button>
-    <button class="mobile-action" id="mobileAddNoteBtn" aria-label="Add note">
-      <svg width="29" height="29" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-    </button>
-    <button class="mobile-action" id="mobileSaveBtn" aria-label="Save note">
+    <button class="mobile-action primary" id="mobileSaveBtn" aria-label="Save note">
       Save
     </button>
   </nav>
@@ -2897,7 +2896,7 @@ const mobileSidebarBackBtn = document.getElementById('mobileSidebarBackBtn');
 const mobileScanCapture = document.getElementById('mobileScanCapture');
 const mobileBackdrop = document.getElementById('mobileBackdrop');
 const mobileBottomActions = document.getElementById('mobileBottomActions');
-const mobileCopyBtn = document.getElementById('mobileCopyBtn');
+const mobileEmrBtn = document.getElementById('mobileEmrBtn');
 const mobileReviewBtn = document.getElementById('mobileReviewBtn');
 const mobileRecordBtn = document.getElementById('mobileRecordBtn');
 const mobileAddNoteBtn = document.getElementById('mobileAddNoteBtn');
@@ -4886,9 +4885,7 @@ function stopMobileScannerFocusLoop(){
 }
 
 function armMobileHomeScanner({clear = false} = {}){
-  if (!isMobileViewport() || !mobileHomeDefaultActive) return;
-  focusMobileScanCapture({clear});
-  startMobileScannerFocusLoop();
+  return;
 }
 
 function setNurseQrStatus(message){
@@ -4973,6 +4970,34 @@ function openMobileSidebar(){
 
 function setMobileBottomActionsVisible(visible){
   mobileBottomActions?.classList.toggle('hidden', !visible);
+  if (visible) updateMobileReviewState();
+}
+
+function currentReviewRecord(){
+  return currentEditableRecord() || selectedOpTimelineRecord() || (activeIndex !== null ? records[activeIndex] : null);
+}
+
+function updateMobileReviewState(record = currentReviewRecord()){
+  if (!mobileReviewBtn) return;
+  const reviewed = Boolean(record?.reviewed || record?.reviewedAt || record?.status === 'Reviewed');
+  mobileReviewBtn.classList.toggle('reviewed', reviewed);
+  mobileReviewBtn.textContent = reviewed ? 'Reviewed' : 'Review';
+  mobileReviewBtn.setAttribute('aria-label', reviewed ? 'Note reviewed' : 'Mark note reviewed');
+}
+
+async function markCurrentNoteReviewed(){
+  const record = currentReviewRecord();
+  if (!record?.firestoreId || !currentUser) return;
+  record.reviewed = true;
+  record.status = 'Reviewed';
+  updateMobileReviewState(record);
+  await persistRecord(record,{
+    reviewed:true,
+    status:'Reviewed',
+    reviewedAt:serverTimestamp(),
+    reviewedBy:currentUser.uid,
+    updatedAt:serverTimestamp()
+  });
 }
 
 function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
@@ -5201,7 +5226,6 @@ function showMobileHomeScreen(){
     <div class="empty-state">
       <div class="home-brand" aria-label="Nurse WOYZ">
         <span class="home-brand-pill"><span class="home-brand-dot"></span>Nurse WOYZ</span>
-        <span>Notes</span>
       </div>
       <div class="empty-sub">Start a progress note and dictate patient name, UHID, age, sex, then the nursing note.</div>
       <div class="home-tool-actions" aria-label="Nurse note templates">
@@ -6609,7 +6633,7 @@ function renderGeneratedNote(draft){
           </div>
         </div>
         <div class="note-editor ${anonymizeEnabled ? 'anonymized' : ''}" id="generatedNoteEditor" data-note-id="${escapeHtml(draft.firestoreId || '')}" data-note-owner="${escapeHtml(noteOwnerUid(draft) || '')}" contenteditable="${canEdit ? 'true' : 'false'}" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Editable generated note">${richNoteHtml(displayText)}</div>
-        <button class="mobile-review-inline ${selectedRecordCanContinue() ? 'visible' : ''}" id="mobileInlineReviewBtn" aria-label="Review note dictation for selected note">Review Note</button>
+        <button class="mobile-review-inline ${selectedRecordCanContinue() ? 'visible' : ''}" id="mobileInlineReviewBtn" aria-label="Add more dictated text to selected note">Add-on</button>
       </section>
     </div>`;
   const editor = document.getElementById('generatedNoteEditor');
@@ -8459,6 +8483,7 @@ async function createScannedVoiceDraft(scan){
 }
 
 async function handleAsterScannerText(value, {clearSearch = false} = {}){
+  return false;
   const scan = parseAsterScanText(value);
   if (!scan || !currentUser) return false;
   if (!requireNurseSession()) return true;
@@ -8874,15 +8899,23 @@ topbarPatient.addEventListener('keydown', event => {
   }
 });
 mobileBackdrop.addEventListener('click', closeMobileSidebar);
-mobileCopyBtn.addEventListener('click', () => copyBtn.click());
-mobileReviewBtn.addEventListener('click', openContinuationDock);
-mobileRecordBtn.addEventListener('click', async event => {
+mobileEmrBtn?.addEventListener('click', () => {
+  mobileEmrBtn.textContent = 'Coming Soon';
+});
+mobileReviewBtn?.addEventListener('click', () => {
+  markCurrentNoteReviewed().catch(error => {
+    console.error('Unable to mark note reviewed:', error);
+    window.alert('Unable to mark this note reviewed. Please try again.');
+    updateMobileReviewState();
+  });
+});
+mobileRecordBtn?.addEventListener('click', async event => {
   event.preventDefault();
   await createVoiceDraft();
   closeMobileSidebar();
 });
-mobileAddNoteBtn.addEventListener('click', () => addNoteBtn.click());
-mobileSaveBtn.addEventListener('click', () => saveDraftBtn.click());
+mobileAddNoteBtn?.addEventListener('click', () => addNoteBtn.click());
+mobileSaveBtn?.addEventListener('click', () => saveDraftBtn.click());
 continueNoteBtn.addEventListener('click', openContinuationDock);
 topbarContinueBtn.addEventListener('click', openContinuationDock);
 function handleDocumentModeAction(mode){
@@ -9543,11 +9576,17 @@ saveDraftBtn.addEventListener('click', async () => {
 
 function extractPatientFromNote(text, fallback = {}){
   const find = pattern => String(text || '').match(pattern)?.[1]?.trim();
+  const keepOrFill = (field, value, cleaner = next => String(next || '').trim()) => {
+    const existing = cleaner(fallback?.[field]);
+    if (existing && !isNilLike(existing)) return existing;
+    const nextValue = cleaner(value);
+    return nextValue && !isNilLike(nextValue) ? nextValue : 'NIL';
+  };
   return {
-    name:find(/^(?:Patient\s+)?Name:\s*([^\n·]+)/im) || fallback?.name || 'NIL',
-    age:find(/^Age:\s*(.+)$/im) || fallback?.age || 'NIL',
-    uhid:cleanUhid(find(/^UHID:\s*(.+)$/im) || fallback?.uhid || 'NIL'),
-    sex:find(/^Sex:\s*(.+)$/im) || fallback?.sex || 'NIL'
+    name:keepOrFill('name', find(/^(?:Patient\s+)?Name:\s*([^\n·]+)/im)),
+    age:keepOrFill('age', find(/^Age:\s*(.+)$/im), cleanAge),
+    uhid:keepOrFill('uhid', find(/^UHID:\s*(.+)$/im), cleanUhid),
+    sex:keepOrFill('sex', find(/^Sex:\s*(.+)$/im), cleanSex)
   };
 }
 
@@ -9617,7 +9656,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=208', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=209', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
