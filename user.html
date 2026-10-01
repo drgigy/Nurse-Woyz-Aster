@@ -456,7 +456,12 @@
   .mobile-doc-actions,
   .topbar-doc-actions,
   #nurseQrModal,
-  #nurseIdentity{ display:none !important; }
+  #nurseIdentity,
+  #copyBtn,
+  #printWrap,
+  #emailWrap,
+  #mobileCopyBtn,
+  #layoutBtn{ display:none !important; }
   .visit-toggle-btn{ height:28px; min-width:38px; border:0; border-radius:7px; background:transparent; color:var(--muted); font:800 12px 'Inter',sans-serif; cursor:pointer; }
   .sidebar .visit-toggle-btn{ height:28px; flex:1; font-size:12px; }
   .visit-toggle-btn.active{ background:var(--teal); color:#fff; }
@@ -644,11 +649,28 @@
   .entry-text{ min-width:0; flex:1; }
   .entry-owner{
     position:absolute;
-    right:9px;top:50%;
+    right:38px;top:50%;
     transform:translateY(-50%);
     color:rgba(31,95,82,.76);
     font:800 10.5px 'IBM Plex Mono',monospace;
   }
+  .entry-delete{
+    position:absolute;
+    right:7px;
+    top:50%;
+    transform:translateY(-50%);
+    width:25px;
+    height:25px;
+    border:0;
+    border-radius:8px;
+    background:transparent;
+    color:#B55243;
+    font:900 17px/1 'Inter',sans-serif;
+    cursor:pointer;
+    display:grid;
+    place-items:center;
+  }
+  .entry-delete:hover{ background:#FBE7E3; }
   .entry.active .entry-owner{ color:var(--teal-deep); }
   .entry-name{
     font-size:14px;
@@ -3439,6 +3461,7 @@ function renderTodayEntries(){
         <div class="entry-uhid">${escapeHtml(entryMeta)}</div>
       </span>
       <span class="entry-owner">${escapeHtml(ownerCode)}</span>
+      <span class="entry-delete" role="button" tabindex="0" aria-label="Delete entry" title="Delete" data-delete-record="${escapeHtml(recordLocalKey(r))}">&times;</span>
     `;
     btn.addEventListener('click', () => {
       selectEntry(i);
@@ -3483,6 +3506,7 @@ function renderMobilePatientEntries(){
         <div class="entry-uhid">${escapeHtml(`${patientMetaLine(latest)} · ${group.records.length} ${group.records.length === 1 ? 'entry' : 'entries'}`)}</div>
       </span>
       <span class="entry-owner">${escapeHtml(ownerCode)}</span>
+      <span class="entry-delete" role="button" tabindex="0" aria-label="Delete patient entry" title="Delete" data-delete-group="${escapeHtml(group.key)}">&times;</span>
     `;
     btn.addEventListener('click', () => {
       const credential = group.records.find(record => record.patientCredential);
@@ -3553,6 +3577,7 @@ function renderOpPatientEntries(){
         <div class="entry-uhid">${escapeHtml(compactPatientMetaText(namedDraft ? patientMetaLine(r) : r.createdAt))}</div>
       </span>
       <span class="entry-owner">${escapeHtml(ownerCode)}</span>
+      <span class="entry-delete" role="button" tabindex="0" aria-label="Delete entry" title="Delete" data-delete-record="${escapeHtml(recordLocalKey(r))}">&times;</span>
     `;
     btn.addEventListener('click', () => {
       selectedOpTimelineKey = null;
@@ -3577,6 +3602,7 @@ function renderOpPatientEntries(){
         <div class="entry-uhid">${escapeHtml(`${patientMetaLine(latest)} · ${group.todayRecords.length} today · ${group.records.length} total`)}</div>
       </span>
       <span class="entry-owner">${escapeHtml(ownerCode)}</span>
+      <span class="entry-delete" role="button" tabindex="0" aria-label="Delete patient entry" title="Delete" data-delete-op-group="${escapeHtml(group.key)}">&times;</span>
     `;
     btn.addEventListener('click', () => {
       selectedOpTimelineReviewIndex = null;
@@ -3873,6 +3899,7 @@ function renderAllPatientEntries(){
         <div class="entry-uhid">${escapeHtml(`${patientMetaLine(latest)} · ${group.records.length} note${group.records.length === 1 ? '' : 's'}`)}</div>
       </span>
       <span class="entry-owner">${escapeHtml(ownerCode)}</span>
+      <span class="entry-delete" role="button" tabindex="0" aria-label="Delete patient entry" title="Delete" data-delete-all-group="${escapeHtml(group.key)}">&times;</span>
     `;
     btn.addEventListener('click', () => {
       selectedTimelineKey = group.key;
@@ -3888,6 +3915,93 @@ function renderAllPatientEntries(){
     entryList.appendChild(btn);
   });
 }
+
+function uniqueSidebarDeleteRecords(items){
+  return Array.from(new Map((items || [])
+    .filter(record => record?.firestoreId && !record.isDeleted)
+    .map(record => [recordLocalKey(record), record])
+  ).values());
+}
+
+async function moveSidebarRecordsToTrash(items, label = 'this entry'){
+  const targets = uniqueSidebarDeleteRecords(items);
+  if (!targets.length) return;
+  const message = targets.length === 1
+    ? `Move ${label} to Trash? It can be restored for 30 days.`
+    : `Move ${targets.length} notes for ${label} to Trash? They can be restored for 30 days.`;
+  if (!window.confirm(message)) return;
+  try{
+    await Promise.all(targets.map(record => persistRecord(record,{
+      deleted:true,
+      deletedAt:serverTimestamp(),
+      deletedBy:currentUser.uid,
+      updatedAt:serverTimestamp()
+    })));
+    const deletedKeys = new Set(targets.map(recordLocalKey));
+    records = records.filter(record => !deletedKeys.has(recordLocalKey(record)));
+    allRecords = allRecords.filter(record => !deletedKeys.has(recordLocalKey(record)));
+    allOwnerRecords.forEach((ownerRecords, ownerUid) => {
+      allOwnerRecords.set(ownerUid, ownerRecords.filter(record => !deletedKeys.has(recordLocalKey(record))));
+    });
+    if (activeIndex !== null && (!records[activeIndex] || deletedKeys.has(recordLocalKey(records[activeIndex])))) activeIndex = null;
+    selectedTimelineKey = deletedKeys.has(selectedTimelineKey) ? null : selectedTimelineKey;
+    selectedOpTimelineKey = null;
+    selectedOpTimelineEntryId = 'all';
+    renderEntries();
+    if (isMobileViewport()) showMobileHomeScreen();
+    else if (!records.length) showEmptyDate(selectedVisitType === 'IP' ? 'No active IP notes for this date.' : `No ${selectedVisitType} notes saved for this date.`);
+  }catch(error){
+    console.error('Sidebar delete failed:', error);
+    window.alert('Unable to move this entry to Trash.');
+  }
+}
+
+function sidebarDeleteTargetFromElement(element){
+  if (element.dataset.deleteRecord){
+    const key = element.dataset.deleteRecord;
+    const record = records.find(item => recordLocalKey(item) === key) || allRecords.find(item => recordLocalKey(item) === key);
+    return {records:record ? [record] : [], label:record ? displayPatientName(record) : 'this entry'};
+  }
+  if (element.dataset.deleteGroup){
+    const key = element.dataset.deleteGroup;
+    const groupRecords = records.filter(record => patientSearchKey(record) === key && !record.isDeleted);
+    const label = displayPatientName(groupRecords[0] || {});
+    return {records:groupRecords, label};
+  }
+  if (element.dataset.deleteOpGroup){
+    const key = element.dataset.deleteOpGroup;
+    const groupRecords = opTimelineRecordsForKey(key);
+    const label = displayPatientName(groupRecords[0] || {});
+    return {records:groupRecords, label};
+  }
+  if (element.dataset.deleteAllGroup){
+    const key = element.dataset.deleteAllGroup;
+    const groupRecords = timelineRecordsForKey(key);
+    const label = displayPatientName(groupRecords[0] || {});
+    return {records:groupRecords, label};
+  }
+  return {records:[], label:'this entry'};
+}
+
+entryList.addEventListener('click', event => {
+  const deleteButton = event.target.closest('.entry-delete');
+  if (!deleteButton) return;
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation();
+  const target = sidebarDeleteTargetFromElement(deleteButton);
+  moveSidebarRecordsToTrash(target.records, target.label);
+}, true);
+
+entryList.addEventListener('keydown', event => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  const deleteButton = event.target.closest('.entry-delete');
+  if (!deleteButton) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const target = sidebarDeleteTargetFromElement(deleteButton);
+  moveSidebarRecordsToTrash(target.records, target.label);
+});
 
 function recordMatchesSearch(record){
   const queryText = recordSearchTerm.trim().toLowerCase();
@@ -9503,7 +9617,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=207', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=208', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
