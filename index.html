@@ -1541,6 +1541,13 @@ onAuthStateChanged(auth, async user => {
   currentNurse = readStoredNurse();
   updateNurseSessionUi();
   subscribeToAdminProfile(user);
+  const profileRef = doc(db,'users',user.uid);
+  try{
+    const profileSnapshot = await getDoc(profileRef);
+    applyProfileNurseSession(profileSnapshot.data() || {});
+  }catch(error){
+    console.warn('Unable to load active nurse session:', error);
+  }
   if (await isMasterAdmin(user)){
     setDoc(doc(db,'users',user.uid),{
       email:user.email || '',
@@ -1555,7 +1562,6 @@ onAuthStateChanged(auth, async user => {
     if (!currentNurse) showNurseSignInScreen();
     return;
   }
-  const profileRef = doc(db,'users',user.uid);
   setDoc(profileRef,{
     email:user.email || '',
     emailUpdatedAt:serverTimestamp()
@@ -2066,7 +2072,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=202', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=203', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
