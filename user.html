@@ -4974,7 +4974,17 @@ function setMobileBottomActionsVisible(visible){
 }
 
 function currentReviewRecord(){
-  return currentEditableRecord() || selectedOpTimelineRecord() || (activeIndex !== null ? records[activeIndex] : null);
+  const editor = document.getElementById('generatedNoteEditor');
+  const displayedId = editor?.dataset.noteId || '';
+  const displayedOwner = editor?.dataset.noteOwner || '';
+  if (displayedId){
+    const displayedRecord = [...records, ...allRecords].find(record => {
+      if (record.firestoreId !== displayedId) return false;
+      return !displayedOwner || noteOwnerUid(record) === displayedOwner;
+    });
+    if (displayedRecord) return displayedRecord;
+  }
+  return currentEditableRecord() || selectedOpTimelineRecord() || opTimelineWorkingRecord() || (activeIndex !== null ? records[activeIndex] : null);
 }
 
 function updateMobileReviewState(record = currentReviewRecord()){
@@ -4987,9 +4997,16 @@ function updateMobileReviewState(record = currentReviewRecord()){
 
 async function markCurrentNoteReviewed(){
   const record = currentReviewRecord();
-  if (!record?.firestoreId || !currentUser) return;
+  if (!record?.firestoreId || !currentUser){
+    if (mobileReviewBtn){
+      mobileReviewBtn.classList.add('reviewed');
+      mobileReviewBtn.textContent = 'Reviewed';
+    }
+    return;
+  }
   record.reviewed = true;
   record.status = 'Reviewed';
+  syncRecordCollections(record);
   updateMobileReviewState(record);
   await persistRecord(record,{
     reviewed:true,
@@ -6624,6 +6641,7 @@ function renderGeneratedNote(draft){
   const title = draft.selectedMode || 'Visit Note';
   const displayText = anonymizeTextForRecord(displayNoteTextForRecord(draft, draft.transcription), draft);
   const canEdit = !anonymizeEnabled;
+  const canAddOn = Boolean(draft && !draft.voiceDraft && (draft.transcription || draft.kind === 'generated'));
   mainScroll.innerHTML = `
     <div class="generated-note">
       <section class="generated-note-card">
@@ -6633,7 +6651,7 @@ function renderGeneratedNote(draft){
           </div>
         </div>
         <div class="note-editor ${anonymizeEnabled ? 'anonymized' : ''}" id="generatedNoteEditor" data-note-id="${escapeHtml(draft.firestoreId || '')}" data-note-owner="${escapeHtml(noteOwnerUid(draft) || '')}" contenteditable="${canEdit ? 'true' : 'false'}" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Editable generated note">${richNoteHtml(displayText)}</div>
-        <button class="mobile-review-inline ${selectedRecordCanContinue() ? 'visible' : ''}" id="mobileInlineReviewBtn" aria-label="Add more dictated text to selected note">Add-on</button>
+        <button class="mobile-review-inline ${canAddOn ? 'visible' : ''}" id="mobileInlineReviewBtn" aria-label="Add more dictated text to selected note">Add-on</button>
       </section>
     </div>`;
   const editor = document.getElementById('generatedNoteEditor');
@@ -7021,7 +7039,7 @@ function renderContinuationDock(){
 }
 
 function selectedRecordCanContinue(){
-  const record = currentEditableRecord() || opTimelineWorkingRecord();
+  const record = currentReviewRecord() || currentEditableRecord() || opTimelineWorkingRecord();
   return Boolean(record && !record.voiceDraft && (record.transcription || record.kind === 'generated'));
 }
 
@@ -7036,7 +7054,7 @@ function newVoiceTemplateForMode(mode, visitType = selectedVisitType){
 
 function openContinuationDock(){
   if (!selectedRecordCanContinue()) return;
-  const targetRecord = currentEditableRecord() || opTimelineWorkingRecord();
+  const targetRecord = currentReviewRecord() || currentEditableRecord() || opTimelineWorkingRecord();
   if (!targetRecord?.firestoreId) return;
   stopVoiceTimer();
   stopMediaTracks();
@@ -7059,7 +7077,7 @@ function openContinuationDock(){
 
 function openDocumentAppendDock(mode){
   if (!mode || !selectedRecordCanContinue()) return false;
-  const targetRecord = currentEditableRecord() || opTimelineWorkingRecord();
+  const targetRecord = currentReviewRecord() || currentEditableRecord() || opTimelineWorkingRecord();
   if (!targetRecord?.firestoreId) return false;
   stopVoiceTimer();
   stopMediaTracks();
@@ -9656,7 +9674,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=209', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=210', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
