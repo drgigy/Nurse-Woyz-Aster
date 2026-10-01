@@ -439,6 +439,7 @@
     color:var(--muted);
   }
   .mobile-review-inline{ display:none; }
+  .mobile-review-inline.visible{ display:inline-flex; align-items:center; justify-content:center; }
 
   .processing-wrap{ width:100%; min-height:100%; display:flex; align-items:center; justify-content:center; padding:44px; }
   .processing-content{ width:min(620px,92%); text-align:center; }
@@ -6645,7 +6646,7 @@ function renderGeneratedNote(draft){
   const title = draft.selectedMode || 'Visit Note';
   const displayText = anonymizeTextForRecord(displayNoteTextForRecord(draft, draft.transcription), draft);
   const canEdit = !anonymizeEnabled;
-  const canAddOn = Boolean(draft && !draft.voiceDraft);
+  const canAddOn = Boolean(draft);
   mainScroll.innerHTML = `
     <div class="generated-note">
       <section class="generated-note-card">
@@ -9678,7 +9679,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=211', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=212', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
