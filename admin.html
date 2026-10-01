@@ -31,9 +31,9 @@
   .side-head{padding:18px;border-bottom:1px solid var(--line)}
   .side .brand{font-size:18px;padding:7px 13px;border-width:2px}
   .side .dot{width:16px;height:16px;box-shadow:0 0 0 7px rgba(244,81,85,.22)}
-  .date-row{display:flex;align-items:center;gap:8px;margin-top:14px}
+  .date-row{display:flex;align-items:center;gap:8px}
   .icon{width:38px;height:38px;padding:0;border-radius:10px}
-  .date-input{height:38px;font-weight:800}
+  .date-input{height:38px;font-weight:800;width:150px}
   .search{margin-top:10px}
   .list{padding:12px;overflow:auto;display:grid;gap:9px}
   .patient{border:1px solid transparent;background:transparent;border-radius:12px;padding:12px;text-align:left;cursor:pointer}
@@ -41,20 +41,19 @@
   .patient-name{font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .patient-meta{margin-top:4px;color:var(--muted);font:800 12px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .main{min-width:0;display:flex;flex-direction:column;height:100vh}
-  .top{height:64px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:0 16px;overflow:auto}
+  .top{min-height:64px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:10px 16px;overflow:auto}
   .spacer{flex:1}
   .who{color:var(--muted);font-size:13px;font-weight:800;white-space:nowrap}
   .content{flex:1;overflow:auto;padding:30px}
   .empty{height:100%;display:grid;place-items:center;text-align:center;color:var(--muted)}
   .review{max-width:980px;margin:0 auto;display:grid;gap:16px}
-  .title{font-size:42px;font-weight:900;margin:0}
   .hint{color:var(--muted);font-weight:800}
-  .note-card{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:14px;display:grid;gap:12px}
+  .note-card{background:transparent;padding:0;display:grid;gap:12px}
   .note-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .note-title{font-size:20px;font-weight:900}
   .note-time{color:var(--muted);font:800 12px ui-monospace,SFMono-Regular,Menlo,monospace}
-  .note-box{min-height:220px;resize:vertical;line-height:1.55;font-size:16px;background:white}
-  .actions{display:flex;gap:10px;flex-wrap:wrap}
+  .note-box{line-height:1.6;font-size:17px;white-space:pre-wrap;background:white;border:1px solid var(--line);border-radius:14px;padding:18px}
+  .btn.reviewed{background:var(--teal);border-color:var(--teal);color:white}
   .status{min-height:18px;color:var(--muted);font-weight:800;font-size:13px}
   @media(max-width:760px){.app{grid-template-columns:1fr}.side{height:42vh;border-right:0;border-bottom:1px solid var(--line)}.content{padding:18px}.title{font-size:32px}.who{display:none}}
 </style>
@@ -77,13 +76,20 @@
   <aside class="side">
     <div class="side-head">
       <div class="brand"><span class="dot"></span>Nurse WOYZ</div>
-      <div class="date-row"><button class="btn icon" id="prevDateBtn">&lsaquo;</button><input class="date-input" id="dateInput" type="date"><button class="btn icon" id="nextDateBtn">&rsaquo;</button></div>
       <input class="search" id="searchInput" placeholder="Search patient or UHID">
     </div>
     <div class="list" id="patientList"></div>
   </aside>
   <main class="main">
-    <div class="top"><button class="btn" id="todayBtn">Today</button><div class="spacer"></div><div class="who" id="userEmail"></div><button class="btn danger" id="signOutBtn">Sign out</button></div>
+    <div class="top">
+      <div class="spacer"></div>
+      <div class="date-row"><button class="btn icon" id="prevDateBtn">&lsaquo;</button><input class="date-input" id="dateInput" type="date"><button class="btn icon" id="nextDateBtn">&rsaquo;</button></div>
+      <button class="btn" id="copyTopBtn" disabled>Copy note</button>
+      <button class="btn" id="reviewTopBtn" disabled>Review</button>
+      <button class="btn" id="emrTopBtn" disabled>Send to EMR</button>
+      <div class="who" id="userEmail"></div>
+      <button class="btn danger" id="signOutBtn">Sign out</button>
+    </div>
     <div class="content" id="content"></div>
   </main>
 </section>
@@ -95,7 +101,7 @@ import { firebaseConfig } from './firebase-config.js';
 const fb=initializeApp(firebaseConfig), auth=getAuth(fb), db=getFirestore(fb);
 setPersistence(auth,browserLocalPersistence);
 const $=id=>document.getElementById(id);
-const loginScreen=$('loginScreen'), loginForm=$('loginForm'), loginError=$('loginError'), loginBtn=$('loginBtn'), appShell=$('app'), patientList=$('patientList'), content=$('content'), dateInput=$('dateInput'), searchInput=$('searchInput'), userEmail=$('userEmail');
+const loginScreen=$('loginScreen'), loginForm=$('loginForm'), loginError=$('loginError'), loginBtn=$('loginBtn'), appShell=$('app'), patientList=$('patientList'), content=$('content'), dateInput=$('dateInput'), searchInput=$('searchInput'), userEmail=$('userEmail'), copyTopBtn=$('copyTopBtn'), reviewTopBtn=$('reviewTopBtn'), emrTopBtn=$('emrTopBtn');
 let currentUser=null, unsub=null, notes=[], selectedDate=new Date(), selectedKey=null;
 function isoDate(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
@@ -105,14 +111,21 @@ function label(p){return p.name||'Unnamed patient'}
 function meta(p){return[`UHID ${p.uhid||'NIL'}`,p.age?`${p.age} yrs`:'',p.sex||''].filter(Boolean).join(' · ')}
 function groups(){const term=searchInput.value.trim().toLowerCase(), map=new Map();notes.filter(n=>n.visitDate===isoDate(selectedDate)&&n.deleted!==true).forEach(n=>{const p=notePatient(n), hay=[p.name,p.uhid,p.age,p.sex,n.transcription].join(' ').toLowerCase();if(term&&!hay.includes(term))return;const key=patientKey(p)||n.id,g=map.get(key)||{key,patient:p,notes:[]};if(!g.patient.uhid&&p.uhid)g.patient=p;g.notes.push(n);map.set(key,g)});return[...map.values()].map(g=>({...g,notes:g.notes.sort((a,b)=>(b.createdAtMs||0)-(a.createdAtMs||0))})).sort((a,b)=>(b.notes[0]?.createdAtMs||0)-(a.notes[0]?.createdAtMs||0))}
 function renderList(){const gs=groups();patientList.innerHTML=gs.length?gs.map(g=>`<button class="patient ${g.key===selectedKey?'active':''}" data-key="${esc(g.key)}"><div class="patient-name">${esc(label(g.patient))}</div><div class="patient-meta">${esc(meta(g.patient))} · ${g.notes.length} note${g.notes.length===1?'':'s'}</div></button>`).join(''):`<div class="hint" style="padding:10px">${searchInput.value?'No matching patients.':'No notes for this date.'}</div>`}
-function renderEmpty(){content.innerHTML='<div class="empty"><div><h1>No patient selected</h1><div>Select a patient from the left list.</div></div></div>'}
-function openGroup(key){selectedKey=key;renderList();const g=groups().find(x=>x.key===key);if(!g)return renderEmpty();content.innerHTML=`<div class="review"><h1 class="title">${esc(label(g.patient))}</h1><div class="hint">${esc(meta(g.patient))}</div>${g.notes.map(n=>`<article class="note-card"><div class="note-head"><div class="note-title">Progress Note</div><div class="note-time">${esc(n.createdAtLabel||'')}</div></div><textarea class="note-box" data-note-text="${esc(n.id)}">${esc(n.transcription||'')}</textarea><div class="actions"><button class="btn primary" data-save="${esc(n.id)}">Save</button><button class="btn" data-copy="${esc(n.id)}">Copy note</button><span class="status" id="status-${esc(n.id)}"></span></div></article>`).join('')}</div>`}
-async function saveNote(id){const note=notes.find(n=>n.id===id), box=content.querySelector(`[data-note-text="${CSS.escape(id)}"]`), status=$(`status-${id}`);if(!note||!box)return;status.textContent='Saving...';await updateDoc(doc(db,'users',currentUser.uid,'notes',id),{transcription:box.value,visitDate:note.visitDate,isDraft:false,adminEditedAt:serverTimestamp(),updatedAt:serverTimestamp()});status.textContent='Saved';setTimeout(()=>status.textContent='',1200)}
-async function copyNote(id){const box=content.querySelector(`[data-note-text="${CSS.escape(id)}"]`);if(!box)return;await navigator.clipboard.writeText(box.value);const status=$(`status-${id}`);if(status){status.textContent='Copied';setTimeout(()=>status.textContent='',1200)}}
+function selectedGroup(){return selectedKey?groups().find(x=>x.key===selectedKey):null}
+function selectedNotes(){return selectedGroup()?.notes||[]}
+function copyBody(text){return String(text||'').replace(/^\s*(?:Patient Name|Name|Age|UHID|Sex):[^\n]*(?:\n|$)/gim,'').trim()}
+function selectedCopyText(){return selectedNotes().map(n=>copyBody(n.transcription)).filter(Boolean).join('\n\n')}
+function setActionState(){const hasNotes=selectedNotes().length>0;copyTopBtn.disabled=!hasNotes;reviewTopBtn.disabled=!hasNotes;emrTopBtn.disabled=!hasNotes;const reviewed=hasNotes&&selectedNotes().every(n=>n.reviewed||n.reviewedAt||n.status==='Reviewed');reviewTopBtn.textContent=reviewed?'Reviewed':'Review';reviewTopBtn.classList.toggle('reviewed',reviewed)}
+function renderEmpty(){selectedKey=null;setActionState();content.innerHTML='<div class="empty"><div><h1>No patient selected</h1><div>Select a patient from the left list.</div></div></div>'}
+function openGroup(key){selectedKey=key;renderList();const g=selectedGroup();if(!g)return renderEmpty();content.innerHTML=`<div class="review">${g.notes.map(n=>`<article class="note-card"><div class="note-head"><div class="note-title">Progress Note</div><div class="note-time">${esc(n.createdAtLabel||'')}</div></div><div class="note-box" data-note-text="${esc(n.id)}">${esc(n.transcription||'')}</div></article>`).join('')}<div class="status" id="topStatus"></div></div>`;setActionState()}
+async function copySelectedNotes(){const text=selectedCopyText();if(!text)return;await navigator.clipboard.writeText(text);const status=$('topStatus');if(status){status.textContent='Copied';setTimeout(()=>status.textContent='',1200)}}
+async function markSelectedReviewed(){const items=selectedNotes();if(!items.length)return;items.forEach(n=>{n.reviewed=true;n.status='Reviewed'});setActionState();await Promise.all(items.map(n=>updateDoc(doc(db,'users',currentUser.uid,'notes',n.id),{reviewed:true,status:'Reviewed',reviewedAt:serverTimestamp(),reviewedBy:currentUser.uid,updatedAt:serverTimestamp()})));const status=$('topStatus');if(status){status.textContent='Reviewed';setTimeout(()=>status.textContent='',1200)}}
+function showEmrSoon(){emrTopBtn.textContent='Coming Soon'}
+function changeDateBy(days){selectedDate.setDate(selectedDate.getDate()+days);dateInput.value=isoDate(selectedDate);selectedKey=null;renderList();renderEmpty()}
 function subscribeNotes(){if(unsub)unsub();unsub=onSnapshot(query(collection(db,'users',currentUser.uid,'notes'),orderBy('createdAt','desc')),snap=>{notes=snap.docs.map(d=>{const x=d.data();return{...x,id:d.id,createdAtMs:x.createdAt?.toMillis?.()||0}});renderList();if(selectedKey&&groups().some(g=>g.key===selectedKey))openGroup(selectedKey);else renderEmpty()},e=>{console.error(e);patientList.innerHTML='<div class="hint" style="padding:10px">Unable to load notes.</div>'})}
 loginForm.addEventListener('submit',async e=>{e.preventDefault();loginError.textContent='';loginBtn.disabled=true;loginBtn.textContent='Signing in...';try{await signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value);$('password').value=''}catch(err){loginError.textContent='Unable to sign in. Check email and password.'}finally{loginBtn.disabled=false;loginBtn.textContent='Sign in'}});
 onAuthStateChanged(auth,async user=>{currentUser=user;if(!user){if(unsub)unsub();appShell.classList.add('hidden');loginScreen.classList.remove('hidden');return}await setDoc(doc(db,'users',user.uid),{email:user.email||'',emailUpdatedAt:serverTimestamp(),activeNurse:null,activeNurseUpdatedAt:serverTimestamp()},{merge:true});userEmail.textContent=user.email||'';loginScreen.classList.add('hidden');appShell.classList.remove('hidden');dateInput.value=isoDate(selectedDate);subscribeNotes();renderEmpty()});
-$('signOutBtn').onclick=()=>signOut(auth);$('todayBtn').onclick=()=>{selectedDate=new Date();dateInput.value=isoDate(selectedDate);selectedKey=null;renderList();renderEmpty()};$('prevDateBtn').onclick=()=>{selectedDate.setDate(selectedDate.getDate()-1);dateInput.value=isoDate(selectedDate);selectedKey=null;renderList();renderEmpty()};$('nextDateBtn').onclick=()=>{selectedDate.setDate(selectedDate.getDate()+1);dateInput.value=isoDate(selectedDate);selectedKey=null;renderList();renderEmpty()};dateInput.onchange=()=>{const[y,m,d]=dateInput.value.split('-').map(Number);if(y&&m&&d)selectedDate=new Date(y,m-1,d);selectedKey=null;renderList();renderEmpty()};searchInput.oninput=renderList;patientList.addEventListener('click',e=>{const b=e.target.closest('[data-key]');if(b)openGroup(b.dataset.key)});content.addEventListener('click',e=>{const save=e.target.closest('[data-save]'), copy=e.target.closest('[data-copy]');if(save)saveNote(save.dataset.save);if(copy)copyNote(copy.dataset.copy)});if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js?v=210',{updateViaCache:'none'}).catch(()=>{});
+$('signOutBtn').onclick=()=>signOut(auth);$('prevDateBtn').onclick=()=>changeDateBy(-1);$('nextDateBtn').onclick=()=>changeDateBy(1);dateInput.onchange=()=>{const[y,m,d]=dateInput.value.split('-').map(Number);if(y&&m&&d)selectedDate=new Date(y,m-1,d);selectedKey=null;renderList();renderEmpty()};searchInput.oninput=renderList;patientList.addEventListener('click',e=>{const b=e.target.closest('[data-key]');if(b)openGroup(b.dataset.key)});copyTopBtn.onclick=()=>copySelectedNotes().catch(console.error);reviewTopBtn.onclick=()=>markSelectedReviewed().catch(console.error);emrTopBtn.onclick=showEmrSoon;if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js?v=211',{updateViaCache:'none'}).catch(()=>{});
 </script>
 </body>
 </html>

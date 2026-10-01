@@ -5006,6 +5006,9 @@ async function markCurrentNoteReviewed(){
   }
   record.reviewed = true;
   record.status = 'Reviewed';
+  mobileHomeDefaultActive = false;
+  const recordIndex = records.findIndex(item => recordMatchesOwnerAndId(item, noteOwnerUid(record), record.firestoreId));
+  if (recordIndex >= 0) activeIndex = recordIndex;
   syncRecordCollections(record);
   updateMobileReviewState(record);
   await persistRecord(record,{
@@ -5015,6 +5018,7 @@ async function markCurrentNoteReviewed(){
     reviewedBy:currentUser.uid,
     updatedAt:serverTimestamp()
   });
+  if (isMobileViewport()) renderGeneratedNote(record);
 }
 
 function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
@@ -6641,7 +6645,7 @@ function renderGeneratedNote(draft){
   const title = draft.selectedMode || 'Visit Note';
   const displayText = anonymizeTextForRecord(displayNoteTextForRecord(draft, draft.transcription), draft);
   const canEdit = !anonymizeEnabled;
-  const canAddOn = Boolean(draft && !draft.voiceDraft && (draft.transcription || draft.kind === 'generated'));
+  const canAddOn = Boolean(draft && !draft.voiceDraft);
   mainScroll.innerHTML = `
     <div class="generated-note">
       <section class="generated-note-card">
@@ -9674,7 +9678,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=210', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=211', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
