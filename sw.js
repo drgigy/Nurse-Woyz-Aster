@@ -1,8 +1,9 @@
-const CACHE_NAME = 'nurse-woyz-v195';
+const CACHE_NAME = 'nurse-woyz-v196';
 const APP_SHELL = [
   './',
   './index.html',
   './user.html',
+  './user-ocr.html',
   './admin.html',
   './qr-generator.html',
   './vendor/qrcode-generator.js',
