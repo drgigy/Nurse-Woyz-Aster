@@ -3268,19 +3268,35 @@ function readStoredNurse(){
   if (!currentUser) return null;
   try{
     const parsed = JSON.parse(localStorage.getItem(nurseSessionStorageKey()) || 'null');
-    return parsed?.name && parsed?.employeeId && parsed?.key ? parsed : null;
+    return validNurseSession(parsed) ? parsed : null;
   }catch(error){
     return null;
   }
 }
 
+function validNurseSession(value){
+  return value?.name && value?.employeeId && value?.key ? value : null;
+}
+
+function persistActiveNurseSession(nurse){
+  if (!currentUser) return;
+  setDoc(doc(db,'users',currentUser.uid),{
+    activeNurse:nurse || null,
+    activeNurseUpdatedAt:serverTimestamp()
+  },{merge:true}).catch(error => {
+    console.warn('Unable to update active nurse session:', error);
+  });
+}
+
 function storeNurseSession(nurse){
   if (!currentUser || !nurse) return;
   localStorage.setItem(nurseSessionStorageKey(), JSON.stringify(nurse));
+  persistActiveNurseSession(nurse);
 }
 
 function clearNurseSession(){
   if (currentUser) localStorage.removeItem(nurseSessionStorageKey());
+  persistActiveNurseSession(null);
   currentNurse = null;
 }
 
@@ -3956,45 +3972,7 @@ function renderPatientTimeline(key){
     showEmptyDate('No previous notes found for this patient.');
     return;
   }
-  activeIndex = null;
-  updateContinueNoteButton();
-  const latest = timelineRecords[0];
-  const identity = patientIdentity(latest);
-  topbarName.textContent = displayPatientName(latest);
-  topbarUhid.textContent = 'UHID ' + (anonymizeEnabled ? 'hidden' : (identity.uhid || 'NIL'));
-  topbarAge.textContent = identity.age + ' yrs';
-  topbarPatient.classList.add('visible');
-  copyBtn.style.display = 'none';
-  hidePrintMenuState();
-  saveDraftBtn.classList.remove('visible');
-  deleteBtn.classList.remove('visible');
-  dischargeBtn.classList.remove('visible');
-  setMobileBottomActionsVisible(false);
-  const selectedDateString = dateInputValue(selectedVisitDate);
-  const hasSelectedDateEntry = timelineRecords.some(record => record.visitDate === selectedDateString);
-  const renderedNotes = timelineRecords.map(record => {
-    const displayText = anonymizeTextForRecord(displayNoteTextForRecord(record, record.transcription || ''), record);
-    return `
-      <article class="timeline-entry">
-        <h2 class="timeline-entry-title">${escapeHtml(timelineTitleForRecord(record))}</h2>
-        <div class="timeline-note">${richNoteHtml(displayText)}</div>
-      </article>
-    `;
-  }).join('');
-  mainScroll.innerHTML = `
-    <div class="timeline-wrap">
-      <div class="timeline-header">
-        <div>
-          <div class="timeline-kicker">${hasSelectedDateEntry ? 'Patient records' : 'Previous records'}</div>
-          <h1 class="timeline-title">${escapeHtml(displayPatientName(latest))}</h1>
-          <div class="timeline-meta">${escapeHtml(patientMetaLine(latest))}</div>
-        </div>
-        ${hasSelectedDateEntry ? '' : '<button class="timeline-add-btn" id="addTimelinePatientTodayBtn" type="button">Add to Today</button>'}
-      </div>
-      <div class="timeline-count">${timelineRecords.length} note${timelineRecords.length === 1 ? '' : 's'} · All entries</div>
-      ${renderedNotes}
-    </div>`;
-  document.getElementById('addTimelinePatientTodayBtn')?.addEventListener('click', () => addTimelinePatientToToday(latest));
+  renderOpPatientTimeline(patientSearchKey(timelineRecords[0]), 'all');
 }
 
 function renderOpPatientTimeline(key, entryId = selectedOpTimelineEntryId || 'all'){
@@ -5361,6 +5339,10 @@ onAuthStateChanged(auth,user => {
       userEmail.textContent = displayCredentialName(profile.credentialName) || '';
       ownerProfiles[user.uid] = profile;
       prescriptionLayoutState = normalizedPrescriptionLayout(profile.prescriptionLayout);
+      const profileNurse = validNurseSession(profile.activeNurse);
+      if (!currentNurse && profileNurse){
+        applyNurseSession(profileNurse);
+      }
       if (layoutModal.classList.contains('open')) loadLayoutModal();
       if (Array.isArray(profile.sharedWith)){
         applySharedOwners([user.uid, ...profile.sharedWith]);
@@ -9573,7 +9555,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=199', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=201', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);

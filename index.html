@@ -377,6 +377,7 @@ const nurseQrStatus = document.getElementById('nurseQrStatus');
 
 let notesUnsubscribe = null;
 let profilesUnsubscribe = null;
+let adminProfileUnsubscribe = null;
 let profileUnsubscribes = [];
 let noteUnsubscribes = [];
 let allNotes = [];
@@ -443,18 +444,34 @@ function readStoredNurse(){
   try{
     const parsed = JSON.parse(localStorage.getItem(nurseSessionStorageKey()) || localStorage.getItem(userNurseSessionStorageKey()) || 'null');
     if (parsed?.name && parsed?.employeeId && parsed?.key) storeNurseSession(parsed);
-    return parsed?.name && parsed?.employeeId && parsed?.key ? parsed : null;
+    return validNurseSession(parsed) ? parsed : null;
   }catch(error){
     return null;
   }
 }
 
+function validNurseSession(value){
+  return value?.name && value?.employeeId && value?.key ? value : null;
+}
+
+function persistActiveNurseSession(nurse){
+  if (!currentAdminUid) return;
+  setDoc(doc(db,'users',currentAdminUid),{
+    activeNurse:nurse || null,
+    activeNurseUpdatedAt:serverTimestamp()
+  },{merge:true}).catch(error => {
+    console.warn('Unable to update active nurse session:', error);
+  });
+}
+
 function storeNurseSession(nurse){
   if (currentAdminUid && nurse) localStorage.setItem(nurseSessionStorageKey(), JSON.stringify(nurse));
+  persistActiveNurseSession(nurse);
 }
 
 function clearNurseSession(){
   if (currentAdminUid) localStorage.removeItem(nurseSessionStorageKey());
+  persistActiveNurseSession(null);
   currentNurse = null;
 }
 
@@ -498,6 +515,34 @@ function applyNurseSession(nurse){
   selectedNoteId = null;
   selectedTimelineEntryId = 'all';
   render();
+}
+
+function applyProfileNurseSession(profile){
+  const profileNurse = validNurseSession(profile?.activeNurse);
+  if (profileNurse && currentNurse?.key !== profileNurse.key){
+    currentNurse = profileNurse;
+    if (currentAdminUid) localStorage.setItem(nurseSessionStorageKey(), JSON.stringify(profileNurse));
+    updateNurseSessionUi();
+    render();
+    return;
+  }
+  if (profile?.activeNurse === null && currentNurse){
+    if (currentAdminUid) localStorage.removeItem(nurseSessionStorageKey());
+    currentNurse = null;
+    updateNurseSessionUi();
+    showNurseSignInScreen();
+  }
+}
+
+function subscribeToAdminProfile(user){
+  if (adminProfileUnsubscribe) adminProfileUnsubscribe();
+  adminProfileUnsubscribe = onSnapshot(doc(db,'users',user.uid), snapshot => {
+    const profile = snapshot.data() || {};
+    userProfiles[user.uid] = profile;
+    applyProfileNurseSession(profile);
+  }, error => {
+    console.warn('Unable to listen for active nurse session:', error);
+  });
 }
 
 function setNurseQrStatus(message){
@@ -1473,9 +1518,11 @@ async function isMasterAdmin(user){
 onAuthStateChanged(auth, async user => {
   if (notesUnsubscribe) notesUnsubscribe();
   if (profilesUnsubscribe) profilesUnsubscribe();
+  if (adminProfileUnsubscribe) adminProfileUnsubscribe();
   clearScopedSubscriptions();
   notesUnsubscribe = null;
   profilesUnsubscribe = null;
+  adminProfileUnsubscribe = null;
   allNotes = [];
   userProfiles = {};
   selectedUserId = null;
@@ -1491,6 +1538,7 @@ onAuthStateChanged(auth, async user => {
   }
   currentNurse = readStoredNurse();
   updateNurseSessionUi();
+  subscribeToAdminProfile(user);
   if (await isMasterAdmin(user)){
     setDoc(doc(db,'users',user.uid),{
       email:user.email || '',
@@ -2016,7 +2064,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=199', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=201', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);

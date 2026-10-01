@@ -27,7 +27,9 @@ service cloud.firestore {
         "prescriptionLayout",
         "prescriptionLayoutUpdatedAt",
         "email",
-        "emailUpdatedAt"
+        "emailUpdatedAt",
+        "activeNurse",
+        "activeNurseUpdatedAt"
       ];
     }
 
