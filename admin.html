@@ -65,6 +65,7 @@
   .entry-meta{ color:var(--muted); font:700 11px 'IBM Plex Mono',monospace; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .main{ min-width:0; min-height:0; overflow:hidden; display:flex; flex-direction:column; background:#fff; }
   .main-topbar{ height:64px; min-height:64px; display:flex; align-items:center; gap:12px; padding:0 20px; border-bottom:1px solid var(--border); background:#fff; }
+  .topbar-identity{ display:none; }
   .topbar-title{ font-weight:800; min-width:170px; }
   .topbar-meta{ color:var(--muted); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .spacer{ flex:1; }
@@ -251,7 +252,7 @@
   </aside>
   <main class="main">
     <div class="main-topbar">
-      <div>
+      <div class="topbar-identity">
         <div class="topbar-title" id="topbarTitle">Admin notes</div>
         <div class="topbar-meta" id="topbarMeta">Select a user</div>
       </div>
@@ -1309,7 +1310,6 @@ function renderAdminAllEntries(seedNote){
   }).join('');
   mainScroll.innerHTML = `
     <h1 class="note-title">${escapeHtml(patientName)}</h1>
-    <div class="admin-all-count">${notes.length} ${notes.length === 1 ? 'entry' : 'entries'} · All entries</div>
     <div class="admin-all-entries">${rendered}</div>
   `;
 }
@@ -2043,7 +2043,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=204', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=205', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);

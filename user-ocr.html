@@ -3279,8 +3279,8 @@ function validNurseSession(value){
 }
 
 function persistActiveNurseSession(nurse){
-  if (!currentUser) return;
-  setDoc(doc(db,'users',currentUser.uid),{
+  if (!currentUser) return Promise.resolve();
+  return setDoc(doc(db,'users',currentUser.uid),{
     activeNurse:nurse || null,
     activeNurseUpdatedAt:serverTimestamp()
   },{merge:true}).catch(error => {
@@ -3296,8 +3296,8 @@ function storeNurseSession(nurse){
 
 function clearNurseSession(){
   if (currentUser) localStorage.removeItem(nurseSessionStorageKey());
-  persistActiveNurseSession(null);
   currentNurse = null;
+  return persistActiveNurseSession(null);
 }
 
 function recordMatchesCurrentNurse(record){
@@ -9242,8 +9242,10 @@ nurseIdentityBtn.addEventListener('click', event => {
   const isOpen = nurseIdentity.classList.toggle('open');
   nurseIdentityBtn.setAttribute('aria-expanded', String(isOpen));
 });
-nurseLogoutBtn.addEventListener('click', () => {
-  clearNurseSession();
+nurseLogoutBtn.addEventListener('click', async () => {
+  nurseLogoutBtn.disabled = true;
+  await clearNurseSession();
+  nurseLogoutBtn.disabled = false;
   clearNotesSubscriptions();
   clearAllNotesSubscriptions();
   records = [];
@@ -9556,7 +9558,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=204', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=205', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
