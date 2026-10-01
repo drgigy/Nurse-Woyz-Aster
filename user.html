@@ -2971,9 +2971,10 @@ const GEMINI_MODELS = ['gemini-3.6-flash','gemini-flash-latest','gemini-2.5-flas
 const PATIENT_FIELDS = {
   patientName:{type:'string',description:'Patient name exactly as spoken at the beginning, otherwise NIL.'},
   patientAge:{type:'string',description:'Patient age exactly as spoken at the beginning, otherwise NIL.'},
-  patientUhid:{type:'string',description:'UHID exactly as spoken at the beginning, otherwise NIL.'}
+  patientUhid:{type:'string',description:'Nine-digit UHID exactly as spoken at the beginning. Remove spaces or separators. Use NIL if a nine-digit number is not clearly present.'},
+  patientSex:{type:'string',description:'Patient sex or gender exactly as spoken at the beginning, such as Male/Female/M/F, otherwise NIL.'}
 };
-const TEXT_SCHEMA = {type:'object',properties:{...PATIENT_FIELDS,text:{type:'string',description:'The complete requested editable clinical text. Preserve every clearly dictated clinical fact, medicine, dose, investigation, value, advice, and follow-up without summarizing or truncating.'}},required:['patientName','patientAge','patientUhid','text']};
+const TEXT_SCHEMA = {type:'object',properties:{...PATIENT_FIELDS,text:{type:'string',description:'The complete requested editable clinical text. Preserve every clearly dictated clinical fact, medicine, dose, investigation, value, advice, and follow-up without summarizing or truncating.'}},required:['patientName','patientAge','patientUhid','patientSex','text']};
 const CERTIFICATE_SCHEMA = {type:'object',properties:{...PATIENT_FIELDS,date:{type:'string'},patientSex:{type:'string'},certificateBody:{type:'string'}},required:['patientName','patientAge','patientUhid','date','patientSex','certificateBody']};
 const AMBIENT_FIELDS = ['presentingComplaint','historyOfPresentIllness','pastMedicalHistory','allergies','familyHistory','personalHistory','examinationFindings','reviewOfInvestigations','currentMedication','provisionalDiagnosis','treatmentPlan'];
 const OP_AMBIENT_FIELDS = [...AMBIENT_FIELDS,'prescription'];
@@ -2992,7 +2993,7 @@ const GEMINI_PROMPTS = {
   'Reply letter':`You are a clinical reply letter drafting assistant. The nurse states the patient name, age, and UHID at the beginning; extract these identifiers into their JSON fields and exclude the opening identification from the letter unless it belongs naturally in the clinical content. Create a clean reply letter from only the dictated audio. Correct spelling and grammar and make sentences complete. Do not add, infer, assume, hallucinate, recommend, or remove any clinical information. Use a polite professional letter style and keep the original meaning exactly. The text must begin exactly with "To," followed by the dictated recipient name, credentials, department, hospital, or address, each on its own line when dictated. Leave one blank line before the main paragraphs. Do not use a salutation or a Reply Letter heading. End with "Thank you" one blank line below the final paragraph. Do not include sender credentials, signature, or footer. If a detail is not dictated, omit it; do not write placeholders or "Not dictated". Return only the requested JSON object.`,
   'Medical certificate':`You are an expert medical certificate drafting assistant. The nurse states the patient name, age, and UHID at the beginning; extract them exactly into their JSON fields. Create a clean medical certificate from only the dictated audio. Correct spelling and grammar and make sentences complete. Do not add, infer, assume, hallucinate, recommend, or remove any clinical or administrative information. Use a simple certificate style. Use today's date only when no date is dictated. The certificateBody must begin with "This is to certify that" and contain one or more clear paragraphs. Include patient details only if dictated or provided in the JSON patient fields. If dates, rest period, diagnosis, fitness, restrictions, or purpose are dictated, include them exactly. If a detail is not dictated, omit it; do not write placeholders or "Not dictated". Do not include "To whomsoever it may concern", "Thank you", nurse credentials, or a signature in certificateBody. Return only the requested JSON object.`
 };
-GEMINI_PROMPTS['Progress Note'] = `You are an expert ER nursing transcription assistant. The nurse states the patient name, age, and UHID at the beginning; extract these identifiers into their JSON fields and do not repeat that opening identification in the text unless clinically necessary. Convert the remaining Malayalam, English, or Kerala Manglish dictation into a free-flowing professional nursing progress note. Preserve every clearly dictated clinical fact, chronology, medicine, dose, investigation, value, nursing care, patient response, doctor communication, advice, instruction, and pending task exactly as dictated. Correct spelling, grammar, and punctuation, but never invent, infer, recommend, add, summarize, shorten, or remove clinical information. Do not force the note into headings or template sections. Keep each distinct sentence or dictated statement on a new line. Return only the requested JSON object.`;
+GEMINI_PROMPTS['Progress Note'] = `You are an expert ER nursing transcription assistant. The nurse states the patient name, age, sex or gender, and UHID at the beginning; extract these identifiers into their JSON fields and do not repeat that opening identification in the text unless clinically necessary. UHID must be a nine-digit number; remove dictated spaces or separators only when the nine digits are clear. Convert the remaining Malayalam, English, or Kerala Manglish dictation into a free-flowing professional nursing progress note. Preserve every clearly dictated clinical fact, chronology, medicine, dose, investigation, value, nursing care, patient response, doctor communication, advice, instruction, and pending task exactly as dictated. Correct spelling, grammar, and punctuation, but never invent, infer, recommend, add, summarize, shorten, or remove clinical information. Do not force the note into headings or template sections. Keep each distinct sentence or dictated statement on a new line. Return only the requested JSON object.`;
 GEMINI_PROMPTS['Handover Note'] = GEMINI_PROMPTS['Review dictation'];
 GEMINI_PROMPTS['ER Assessment Note'] = GEMINI_PROMPTS['Review dictation'];
 
@@ -3247,7 +3248,8 @@ function normalizeScannedSex(value){
 function cleanUhid(value){
   const text = String(value || '').trim();
   if (isNilLike(text)) return 'NIL';
-  return /^\d{9}$/.test(text) ? text : 'NIL';
+  const digits = text.replace(/\D/g, '');
+  return digits.length === 9 ? digits : 'NIL';
 }
 
 function firstValidUhid(...values){
@@ -4380,7 +4382,10 @@ function cleanAge(value){
 
 function cleanSex(value){
   const text = String(value || '').trim();
-  return text || 'NIL';
+  if (!text || isNilLike(text)) return 'NIL';
+  if (/^(m|male|man|boy)$/i.test(text)) return 'Male';
+  if (/^(f|female|woman|girl)$/i.test(text)) return 'Female';
+  return text;
 }
 
 function compactSex(value){
@@ -7734,7 +7739,7 @@ async function sendAudioToGemini(audioBlob, apiKey, selectedMode, onRetry, visit
   const taskPrompts = {
     ambient:`Review the complete nurse-patient-attendant recording and produce a mutually consistent structured ${visitContext} visit note from all clearly audible clinical conversation, not only from formal dictated note phrases. Extract clinically relevant facts that are actually present in the ambient conversation and place them under the correct sections. Never infer missing details, never hallucinate, and never add or remove clinical facts. Use NIL for unsupported fields. In Review of Investigations, preserve investigation content fully and verbatim in meaning; never add, remove, shorten, summarize, or make it concise. Use numbered lists for Review of Investigations and Current Medications, with each numbered investigation or medicine starting on a new line. For investigation reports with multiple findings, place each finding on a separate unnumbered line below the numbered investigation. For blood investigations, use one numbered item per blood-report date and list the individual blood values below it without numbering, adding standard units when absent. In Treatment Plan, number only complete treatment actions. Do not split medicine dose, route, timing, frequency, or duration into separate numbered items.${visitContext === 'OP' ? ' Include a Prescription section only when the nurse explicitly dictates a prescription/Rx section or clearly says the following medicines are prescription/Rx medicines. Do not duplicate medicines from Current Medications, Treatment Plan, advice, or treatment changes into Prescription. In Prescription, each medicine must have exactly three lines: numbered Tablet/Cap/Syrup/Inj brand name dose; English patient instruction without repeating the medicine name; natural patient-friendly Kerala Malayalam instruction without repeating the medicine name. Always include the Malayalam instruction line for every prescription medicine. Do not label the Malayalam line. Always write Tablet, not Tab. Do not include demographics inside Prescription.' : ' Do not create a Prescription section for IP notes.'}`,
     'Review dictation':'Transcribe the recording faithfully. Correct only grammar, spelling, and punctuation. Do not add, remove, or infer clinical content.',
-    'Progress Note':'Create a free-flowing ER nursing progress note from only clearly dictated content. Preserve clinical meaning exactly. Do not use template headings, section labels, or bullets unless the nurse explicitly dictates them. Keep each distinct sentence or dictated statement on a new line. Do not infer missing details. Return text only in the JSON text field.',
+    'Progress Note':'Create a free-flowing ER nursing progress note from only clearly dictated content. Extract patientName, patientAge, patientSex, and patientUhid from the opening identification. patientUhid must be exactly nine digits after removing spaces or separators; otherwise return NIL. Preserve clinical meaning exactly. Do not use template headings, section labels, or bullets unless the nurse explicitly dictates them. Keep each distinct sentence or dictated statement on a new line. Do not infer missing details. Return the clinical note text only in the JSON text field.',
     'Handover Note':'Create a concise ER nursing handover note from only clearly dictated content. Use SBAR-style organization when possible: Situation, Background, Assessment, Recommendation/Pending Tasks. Preserve all dictated clinical details, medicines, vitals, timelines, doctor orders, and pending work exactly in meaning. Do not infer missing details. Return text only in the JSON text field.',
     'ER Assessment Note':'Create a structured ER nursing assessment note from only clearly dictated content. Include arrival/triage context, presenting complaint, vitals, nursing assessment, immediate care given, doctor informed/orders, and pending/handover items when dictated. Do not infer or add missing details. Return text only in the JSON text field.',
     'Reply letter':'Draft a polite professional reply letter using only clearly dictated facts. Begin the letter text with "To," and end with "Thank you". Omit undictated details and do not add, remove, or infer clinical content.',
@@ -9686,7 +9691,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=216', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=217', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
