@@ -479,14 +479,14 @@ function clearNurseSession(){
 
 function updateNurseSessionUi(){
   const signedIn = Boolean(currentNurse);
-  appShell.classList.toggle('nurse-locked', !signedIn);
+  appShell.classList.remove('nurse-locked');
   nurseBadge.classList.toggle('visible', signedIn);
   nurseBadgeName.textContent = signedIn ? currentNurse.name : '';
   nurseBadgeId.textContent = signedIn ? currentNurse.employeeId : '';
 }
 
 function noteMatchesCurrentNurse(note){
-  return Boolean(currentNurse?.key && note?.data?.nurseKey === currentNurse.key);
+  return !currentNurse?.key || note?.data?.nurseKey === currentNurse.key;
 }
 
 function showNurseSignInScreen(){
@@ -532,7 +532,7 @@ function applyProfileNurseSession(profile){
     if (currentAdminUid) localStorage.removeItem(nurseSessionStorageKey());
     currentNurse = null;
     updateNurseSessionUi();
-    showNurseSignInScreen();
+    render();
   }
 }
 
@@ -1098,7 +1098,6 @@ function moveAdminDate(days){
 }
 
 function visibleNotes(){
-  if (!currentNurse) return [];
   const selectedDate = dateInputValue(selectedVisitDate);
   return allNotes
     .filter(noteMatchesCurrentNurse)
@@ -1392,10 +1391,6 @@ function selectedAdminCopyText(){
 }
 
 function render(){
-  if (!currentNurse){
-    showNurseSignInScreen();
-    return;
-  }
   if (!adminDateTouched){
     const latestDate = latestDateForSelectedType();
     if (latestDate){
@@ -1559,7 +1554,6 @@ onAuthStateChanged(auth, async user => {
     updateDateNavigation();
     subscribeToUserProfiles();
     subscribeToAllNotes();
-    if (!currentNurse) showNurseSignInScreen();
     return;
   }
   setDoc(profileRef,{
@@ -1583,7 +1577,6 @@ onAuthStateChanged(auth, async user => {
     userEmail.textContent = user.email || '';
     updateDateNavigation();
     subscribeToScopedNotes(ownerIds);
-    if (!currentNurse) showNurseSignInScreen();
   }).catch(error => {
     console.error(error);
     appShell.classList.remove('authenticated');
@@ -1594,26 +1587,12 @@ onAuthStateChanged(auth, async user => {
 });
 
 adminPreviousDateBtn.addEventListener('click', event => {
-  if (!currentNurse){
-    event.preventDefault();
-    showNurseSignInScreen();
-    return;
-  }
   moveAdminDate(-1);
 });
 adminNextDateBtn.addEventListener('click', event => {
-  if (!currentNurse){
-    event.preventDefault();
-    showNurseSignInScreen();
-    return;
-  }
   moveAdminDate(1);
 });
 adminTodayBtn.addEventListener('click', () => {
-  if (!currentNurse){
-    showNurseSignInScreen();
-    return;
-  }
   adminDateTouched = true;
   selectedVisitDate = new Date();
   selectedUserId = null;
@@ -1623,10 +1602,6 @@ adminTodayBtn.addEventListener('click', () => {
   render();
 });
 adminVisitDateInput.addEventListener('change', () => {
-  if (!currentNurse){
-    showNurseSignInScreen();
-    return;
-  }
   adminDateTouched = true;
   setSelectedVisitDateFromValue(adminVisitDateInput.value);
   selectedUserId = null;
@@ -1637,10 +1612,6 @@ adminVisitDateInput.addEventListener('change', () => {
 });
 
 adminVisitToggle.addEventListener('click', event => {
-  if (!currentNurse){
-    showNurseSignInScreen();
-    return;
-  }
   const button = event.target.closest('[data-admin-visit-type]');
   if (!button) return;
   selectedVisitType = button.dataset.adminVisitType === 'IP' ? 'IP' : 'OP';
@@ -2046,7 +2017,7 @@ nurseLogoutBtn.addEventListener('click', () => {
   selectedUserId = null;
   selectedNoteId = null;
   selectedTimelineEntryId = 'all';
-  showNurseSignInScreen();
+  render();
 });
 nurseQrCloseBtn.addEventListener('click', closeNurseQrModal);
 nurseQrCancelBtn.addEventListener('click', closeNurseQrModal);
@@ -2072,7 +2043,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=203', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=204', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
