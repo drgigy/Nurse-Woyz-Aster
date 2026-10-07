@@ -2994,6 +2994,9 @@ const GEMINI_PROMPTS = {
   'Medical certificate':`You are an expert medical certificate drafting assistant. The nurse states the patient name, age, and UHID at the beginning; extract them exactly into their JSON fields. Create a clean medical certificate from only the dictated audio. Correct spelling and grammar and make sentences complete. Do not add, infer, assume, hallucinate, recommend, or remove any clinical or administrative information. Use a simple certificate style. Use today's date only when no date is dictated. The certificateBody must begin with "This is to certify that" and contain one or more clear paragraphs. Include patient details only if dictated or provided in the JSON patient fields. If dates, rest period, diagnosis, fitness, restrictions, or purpose are dictated, include them exactly. If a detail is not dictated, omit it; do not write placeholders or "Not dictated". Do not include "To whomsoever it may concern", "Thank you", nurse credentials, or a signature in certificateBody. Return only the requested JSON object.`
 };
 GEMINI_PROMPTS['Progress Note'] = `You are an expert ER nursing transcription assistant. The nurse states the patient name, age, sex or gender, and UHID at the beginning; extract these identifiers into their JSON fields and do not repeat that opening identification in the text unless clinically necessary. UHID must be a nine-digit number; remove dictated spaces or separators only when the nine digits are clear. Convert the remaining Malayalam, English, or Kerala Manglish dictation into a free-flowing professional nursing progress note. Preserve every clearly dictated clinical fact, chronology, medicine, dose, investigation, value, nursing care, patient response, doctor communication, advice, instruction, and pending task exactly as dictated. Correct spelling, grammar, and punctuation, but never invent, infer, recommend, add, summarize, shorten, or remove clinical information. Do not force the note into headings or template sections. Keep each distinct sentence or dictated statement on a new line. Return only the requested JSON object.`;
+GEMINI_PROMPTS['Initial Assessment'] = `You are an expert ER nursing initial assessment transcription assistant. The nurse states the patient name, age, sex or gender, and UHID at the beginning; extract these identifiers into their JSON fields and do not repeat that opening identification in the text unless clinically necessary. UHID must be a nine-digit number; remove dictated spaces or separators only when the nine digits are clear. Convert the remaining Malayalam, English, or Kerala Manglish dictation into a structured Nursing Initial Assessment - ER note using these headings: Patient Details and Assessment Date/Time, Presenting Complaint, Triage Category, Primary Assessment: Airway, Breathing, Circulation, Disability, Exposure, Vital Signs and Pain Assessment, Allergies, Current Medications, Relevant Medical and Surgical History, Focused Nursing Assessment, Safety and Risk Screening, Initial Nursing Interventions, Reassessment and Disposition. Preserve only clearly dictated clinical details exactly in meaning. Use NIL for unsupported sections. Correct spelling, grammar, and punctuation, but never invent, infer, recommend, add, summarize, shorten, or remove clinical information. Return only the requested JSON object.`;
+GEMINI_PROMPTS['Care Plan'] = `You are an expert ER nursing care plan transcription assistant. The nurse states the patient name, age, sex or gender, and UHID at the beginning; extract these identifiers into their JSON fields and do not repeat that opening identification in the text unless clinically necessary. UHID must be a nine-digit number; remove dictated spaces or separators only when the nine digits are clear. Convert the remaining Malayalam, English, or Kerala Manglish dictation into a structured Nursing Care Plan using these headings: Patient Details and Date/Time, Nursing Problems / Diagnoses, Goals and Expected Outcomes, Planned Nursing Interventions, Evaluation and Progress, Review and Updates. Preserve only clearly dictated clinical details exactly in meaning. Use NIL for unsupported sections. Correct spelling, grammar, and punctuation, but never invent, infer, recommend, add, summarize, shorten, or remove clinical information. Return only the requested JSON object.`;
+GEMINI_PROMPTS['Handover'] = `You are an expert ER nursing handover transcription assistant. The nurse states the patient name, age, sex or gender, and UHID at the beginning; extract these identifiers into their JSON fields and do not repeat that opening identification in the text unless clinically necessary. UHID must be a nine-digit number; remove dictated spaces or separators only when the nine digits are clear. Convert the remaining Malayalam, English, or Kerala Manglish dictation into a structured Nursing Handover - SBAR note using these headings: S - Situation, B - Background, A - Assessment, R - Recommendation. Under Situation include Patient Identification, Current Concern / Reason for Handover, and Current Condition when dictated. Under Background include Reason for Admission / Presentation, Relevant History and Allergies, and Treatment to Date when dictated. Under Assessment include Latest Vital Signs, Current Nursing Assessment, and Active Problems and Safety Risks when dictated. Under Recommendation include Ongoing Care and Monitoring, Pending Tests, Results, and Tasks, and Escalation Plan when dictated. Preserve only clearly dictated clinical details exactly in meaning. Use NIL for unsupported sections. Correct spelling, grammar, and punctuation, but never invent, infer, recommend, add, summarize, shorten, or remove clinical information. Return only the requested JSON object.`;
 GEMINI_PROMPTS['Handover Note'] = GEMINI_PROMPTS['Review dictation'];
 GEMINI_PROMPTS['ER Assessment Note'] = GEMINI_PROMPTS['Review dictation'];
 
@@ -3214,8 +3217,92 @@ NIL
 Pending / Handover:
 NIL`;
 
+const INITIAL_ASSESSMENT_TEMPLATE = `Patient Name: NIL
+Age: NIL
+UHID: NIL
+Sex: NIL
+
+Patient Details and Assessment Date/Time:
+NIL
+
+Presenting Complaint:
+NIL
+
+Triage Category:
+NIL
+
+Primary Assessment: Airway, Breathing, Circulation, Disability, Exposure:
+NIL
+
+Vital Signs and Pain Assessment:
+NIL
+
+Allergies:
+NIL
+
+Current Medications:
+NIL
+
+Relevant Medical and Surgical History:
+NIL
+
+Focused Nursing Assessment:
+NIL
+
+Safety and Risk Screening:
+NIL
+
+Initial Nursing Interventions:
+NIL
+
+Reassessment and Disposition:
+NIL`;
+
+const CARE_PLAN_TEMPLATE = `Patient Name: NIL
+Age: NIL
+UHID: NIL
+Sex: NIL
+
+Patient Details and Date/Time:
+NIL
+
+Nursing Problems / Diagnoses:
+NIL
+
+Goals and Expected Outcomes:
+NIL
+
+Planned Nursing Interventions:
+NIL
+
+Evaluation and Progress:
+NIL
+
+Review and Updates:
+NIL`;
+
+const NURSING_HANDOVER_TEMPLATE = `Patient Name: NIL
+Age: NIL
+UHID: NIL
+Sex: NIL
+
+S - Situation:
+NIL
+
+B - Background:
+NIL
+
+A - Assessment:
+NIL
+
+R - Recommendation:
+NIL`;
+
 const NURSE_NOTE_TEMPLATES = [
-  {mode:'Progress Note', label:'Progress note'}
+  {mode:'Progress Note', label:'Progress note'},
+  {mode:'Initial Assessment', label:'Initial Assessment'},
+  {mode:'Care Plan', label:'Care Plan'},
+  {mode:'Handover', label:'Handover'}
 ];
 
 function normalizeScannerText(value){
@@ -5253,9 +5340,9 @@ function showMobileHomeScreen(){
       <div class="home-brand" aria-label="Nurse WOYZ">
         <span class="home-brand-pill"><span class="home-brand-dot"></span>Nurse WOYZ</span>
       </div>
-      <div class="empty-sub">Start a progress note and dictate patient name, UHID, age, sex, then the nursing note.</div>
+      <div class="empty-sub">Select a nursing template and dictate patient name, UHID, age, sex, then the nursing note.</div>
       <div class="home-tool-actions" aria-label="Nurse note templates">
-        <button class="home-tool-btn primary" type="button" data-home-voice-mode="Progress Note">Progress note</button>
+        ${NURSE_NOTE_TEMPLATES.map(template => `<button class="home-tool-btn primary" type="button" data-home-voice-mode="${escapeHtml(template.mode)}">${escapeHtml(template.label)}</button>`).join('')}
       </div>
     </div>`;
 }
@@ -7055,6 +7142,9 @@ function selectedRecordCanContinue(){
 
 function newVoiceTemplateForMode(mode, visitType = selectedVisitType){
   if (mode === 'Progress Note') return PROGRESS_NOTE_TEMPLATE;
+  if (mode === 'Initial Assessment') return INITIAL_ASSESSMENT_TEMPLATE;
+  if (mode === 'Care Plan') return CARE_PLAN_TEMPLATE;
+  if (mode === 'Handover') return NURSING_HANDOVER_TEMPLATE;
   if (mode === 'Handover Note') return HANDOVER_NOTE_TEMPLATE;
   if (mode === 'ER Assessment Note') return ER_ASSESSMENT_TEMPLATE;
   if (mode === 'Medical certificate') return MEDICAL_CERTIFICATE_TEMPLATE;
@@ -7740,6 +7830,9 @@ async function sendAudioToGemini(audioBlob, apiKey, selectedMode, onRetry, visit
     ambient:`Review the complete nurse-patient-attendant recording and produce a mutually consistent structured ${visitContext} visit note from all clearly audible clinical conversation, not only from formal dictated note phrases. Extract clinically relevant facts that are actually present in the ambient conversation and place them under the correct sections. Never infer missing details, never hallucinate, and never add or remove clinical facts. Use NIL for unsupported fields. In Review of Investigations, preserve investigation content fully and verbatim in meaning; never add, remove, shorten, summarize, or make it concise. Use numbered lists for Review of Investigations and Current Medications, with each numbered investigation or medicine starting on a new line. For investigation reports with multiple findings, place each finding on a separate unnumbered line below the numbered investigation. For blood investigations, use one numbered item per blood-report date and list the individual blood values below it without numbering, adding standard units when absent. In Treatment Plan, number only complete treatment actions. Do not split medicine dose, route, timing, frequency, or duration into separate numbered items.${visitContext === 'OP' ? ' Include a Prescription section only when the nurse explicitly dictates a prescription/Rx section or clearly says the following medicines are prescription/Rx medicines. Do not duplicate medicines from Current Medications, Treatment Plan, advice, or treatment changes into Prescription. In Prescription, each medicine must have exactly three lines: numbered Tablet/Cap/Syrup/Inj brand name dose; English patient instruction without repeating the medicine name; natural patient-friendly Kerala Malayalam instruction without repeating the medicine name. Always include the Malayalam instruction line for every prescription medicine. Do not label the Malayalam line. Always write Tablet, not Tab. Do not include demographics inside Prescription.' : ' Do not create a Prescription section for IP notes.'}`,
     'Review dictation':'Transcribe the recording faithfully. Correct only grammar, spelling, and punctuation. Do not add, remove, or infer clinical content.',
     'Progress Note':'Create a free-flowing ER nursing progress note from only clearly dictated content. Extract patientName, patientAge, patientSex, and patientUhid from the opening identification. patientUhid must be exactly nine digits after removing spaces or separators; otherwise return NIL. Preserve clinical meaning exactly. Do not use template headings, section labels, or bullets unless the nurse explicitly dictates them. Keep each distinct sentence or dictated statement on a new line. Do not infer missing details. Return the clinical note text only in the JSON text field.',
+    'Initial Assessment':'Create a structured Nursing Initial Assessment - ER note from only clearly dictated content. Use these headings exactly: Patient Details and Assessment Date/Time, Presenting Complaint, Triage Category, Primary Assessment: Airway, Breathing, Circulation, Disability, Exposure, Vital Signs and Pain Assessment, Allergies, Current Medications, Relevant Medical and Surgical History, Focused Nursing Assessment, Safety and Risk Screening, Initial Nursing Interventions, Reassessment and Disposition. Use NIL for unsupported sections. Do not infer missing details. Return text only in the JSON text field.',
+    'Care Plan':'Create a structured Nursing Care Plan from only clearly dictated content. Use these headings exactly: Patient Details and Date/Time, Nursing Problems / Diagnoses, Goals and Expected Outcomes, Planned Nursing Interventions, Evaluation and Progress, Review and Updates. Use NIL for unsupported sections. Do not infer missing details. Return text only in the JSON text field.',
+    'Handover':'Create a structured Nursing Handover - SBAR note from only clearly dictated content. Use the headings S - Situation, B - Background, A - Assessment, and R - Recommendation. Include the dictated SBAR details under the appropriate heading. Use NIL for unsupported sections. Do not infer missing details. Return text only in the JSON text field.',
     'Handover Note':'Create a concise ER nursing handover note from only clearly dictated content. Use SBAR-style organization when possible: Situation, Background, Assessment, Recommendation/Pending Tasks. Preserve all dictated clinical details, medicines, vitals, timelines, doctor orders, and pending work exactly in meaning. Do not infer missing details. Return text only in the JSON text field.',
     'ER Assessment Note':'Create a structured ER nursing assessment note from only clearly dictated content. Include arrival/triage context, presenting complaint, vitals, nursing assessment, immediate care given, doctor informed/orders, and pending/handover items when dictated. Do not infer or add missing details. Return text only in the JSON text field.',
     'Reply letter':'Draft a polite professional reply letter using only clearly dictated facts. Begin the letter text with "To," and end with "Thank you". Omit undictated details and do not add, remove, or infer clinical content.',
@@ -7868,7 +7961,7 @@ function formatGeneratedOutput(data, mode, patient, visitType = selectedVisitTyp
   if (mode === 'Progress Note'){
     return `${patientHeader}\nSex: ${patient.sex || data.patientSex || 'NIL'}\n\n${formatFreeFlowProgressNote(data.text)}`.trim();
   }
-  if (['Handover Note','ER Assessment Note'].includes(mode)){
+  if (['Initial Assessment','Care Plan','Handover','Handover Note','ER Assessment Note'].includes(mode)){
     return `${patientHeader}\nSex: ${patient.sex || data.patientSex || 'NIL'}\n\n${formatNursingTemplateOutput(mode, data.text)}`.trim();
   }
   if (mode === 'Review dictation' || mode === 'Reply letter'){
@@ -7925,6 +8018,9 @@ function formatFreeFlowProgressNote(text){
 }
 
 function nursingTemplateSections(mode){
+  if (mode === 'Initial Assessment') return ['Patient Details and Assessment Date/Time','Presenting Complaint','Triage Category','Primary Assessment: Airway, Breathing, Circulation, Disability, Exposure','Vital Signs and Pain Assessment','Allergies','Current Medications','Relevant Medical and Surgical History','Focused Nursing Assessment','Safety and Risk Screening','Initial Nursing Interventions','Reassessment and Disposition'];
+  if (mode === 'Care Plan') return ['Patient Details and Date/Time','Nursing Problems / Diagnoses','Goals and Expected Outcomes','Planned Nursing Interventions','Evaluation and Progress','Review and Updates'];
+  if (mode === 'Handover') return ['S - Situation','B - Background','A - Assessment','R - Recommendation'];
   if (mode === 'Handover Note') return ['Situation','Background','Assessment','Recommendation / Pending Tasks'];
   if (mode === 'ER Assessment Note') return ['Arrival / Triage','Presenting Complaint','Vitals','Nursing Assessment','Immediate Care Given','Doctor Informed / Orders','Pending / Handover'];
   return ['Progress Note','Vitals','Nursing Care / Interventions','Response / Current Status','Plan / Pending'];
@@ -8186,6 +8282,9 @@ function normalizeNumberedLines(text){
 
 function voiceDraftHeadingForMode(mode){
   if (mode === 'Progress Note') return 'Progress Note draft';
+  if (mode === 'Initial Assessment') return 'Initial Assessment draft';
+  if (mode === 'Care Plan') return 'Care Plan draft';
+  if (mode === 'Handover') return 'Handover draft';
   if (mode === 'Handover Note') return 'Handover Note draft';
   if (mode === 'ER Assessment Note') return 'ER Assessment Note draft';
   if (mode === 'Medical certificate') return 'Medical Certificate draft';
@@ -9691,7 +9790,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=217', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=221', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
