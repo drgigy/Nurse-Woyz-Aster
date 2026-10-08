@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nurse WOYZ Dashboard</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<style>
+  :root{--ink:#1d2520;--muted:#6f7b72;--line:#dfe7e2;--panel:#f7faf7;--teal:#1f6656;--teal2:#174d41;--wash:#eaf5f1;--red:#c9332b;--orange:#cc6b22;--yellow:#b58b13;--green:#207245;--blue:#2766b1;--gray:#748077}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);background:#f4f7f4}
+  button,input{font:inherit}
+  .hidden{display:none!important}
+  .brand{display:inline-flex;align-items:center;gap:10px;border:3px solid #f45155;border-radius:999px;background:#17171d;color:white;padding:10px 18px;font-weight:900;font-size:24px;letter-spacing:.5px}
+  .dot{width:24px;height:24px;border-radius:50%;background:#f45155;box-shadow:0 0 0 10px rgba(244,81,85,.22)}
+  .login{min-height:100vh;display:grid;place-items:center;padding:22px}
+  .login-card{width:min(420px,100%);background:white;border:1px solid var(--line);border-radius:16px;padding:26px;box-shadow:0 18px 50px -34px #000}
+  h1{margin:20px 0 6px;font-size:32px}
+  .sub{color:var(--muted);line-height:1.45}
+  label{display:block;margin:16px 0 7px;font-weight:800;font-size:13px}
+  input{width:100%;border:1.5px solid var(--line);border-radius:12px;background:white;color:var(--ink);padding:12px 13px;outline:none}
+  input:focus{border-color:#8ab9ab;box-shadow:0 0 0 3px rgba(31,102,86,.12)}
+  .btn{min-height:42px;border:1px solid var(--line);border-radius:12px;background:white;color:var(--ink);font-weight:900;padding:0 16px;cursor:pointer}
+  .btn.primary{background:var(--teal);border-color:var(--teal);color:white}
+  .btn.primary:hover{background:var(--teal2)}
+  .btn.danger{color:#d94b38;background:#fff3f1;border-color:#f3cbc4}
+  .login .btn{width:100%;margin-top:18px}
+  .error{min-height:20px;margin-top:12px;color:#d94b38;font-weight:800;font-size:13px}
+  .app{min-height:100vh;display:flex;flex-direction:column}
+  .top{min-height:72px;background:white;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:12px 18px;position:sticky;top:0;z-index:5}
+  .top .brand{font-size:18px;padding:7px 13px;border-width:2px}
+  .top .dot{width:16px;height:16px;box-shadow:0 0 0 7px rgba(244,81,85,.22)}
+  .title-block{min-width:0}
+  .title-block h1{margin:0;font-size:24px}
+  .title-block div{color:var(--muted);font-weight:700;font-size:13px}
+  .spacer{flex:1}
+  .controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .date-input{width:154px;height:42px;font-weight:900}
+  .search{width:min(280px,32vw)}
+  .who{font-weight:800;color:var(--muted);font-size:13px;white-space:nowrap}
+  .main{padding:18px;display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:18px;align-items:start}
+  .summary{display:grid;grid-template-columns:repeat(6,minmax(112px,1fr));gap:10px;margin-bottom:14px}
+  .stat{background:white;border:1px solid var(--line);border-radius:12px;padding:12px}
+  .stat-label{font-size:11px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+  .stat-value{font-size:26px;font-weight:950;margin-top:4px}
+  .board{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+  .card{background:white;border:1.5px solid var(--line);border-left-width:9px;border-radius:14px;padding:14px;text-align:left;cursor:pointer;box-shadow:0 12px 34px -30px #000;min-height:190px;display:flex;flex-direction:column;gap:9px}
+  .card:hover{transform:translateY(-1px);box-shadow:0 18px 44px -34px #000}
+  .card.active{outline:3px solid rgba(31,102,86,.16);border-color:#9ac9bb}
+  .card.p1{border-left-color:var(--red)}
+  .card.p2{border-left-color:var(--orange)}
+  .card.p3{border-left-color:var(--yellow)}
+  .card.p4{border-left-color:var(--green)}
+  .card.p5{border-left-color:var(--blue)}
+  .card.p6{border-left-color:var(--gray)}
+  .card-head{display:flex;align-items:flex-start;gap:10px}
+  .priority{border-radius:999px;color:white;padding:6px 9px;font-size:12px;font-weight:950;white-space:nowrap}
+  .priority.p1{background:var(--red)}.priority.p2{background:var(--orange)}.priority.p3{background:var(--yellow)}.priority.p4{background:var(--green)}.priority.p5{background:var(--blue)}.priority.p6{background:var(--gray)}
+  .patient-name{font-size:20px;font-weight:950;line-height:1.1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .meta{font:800 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .field{font-size:13px;color:var(--muted);line-height:1.35}
+  .field b{color:var(--ink)}
+  .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto}
+  .tag{background:var(--wash);border:1px solid #cfe3db;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:900;color:var(--teal2)}
+  .empty{background:white;border:1px dashed #cdd9d3;border-radius:14px;padding:28px;text-align:center;color:var(--muted);font-weight:800}
+  .detail{background:white;border:1px solid var(--line);border-radius:16px;padding:18px;position:sticky;top:90px;min-height:360px}
+  .detail h2{margin:0 0 6px;font-size:26px}
+  .detail-section{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+  .detail-title{font-size:12px;font-weight:950;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+  .detail-text{white-space:pre-wrap;line-height:1.45;font-size:14px}
+  .note-list{display:grid;gap:8px}
+  .note-pill{border:1px solid var(--line);border-radius:10px;padding:9px;background:#fbfdfb}
+  .note-pill b{display:block}
+  @media(max-width:980px){.main{grid-template-columns:1fr}.detail{position:static}.summary{grid-template-columns:repeat(3,1fr)}.search{width:100%}.top{align-items:flex-start;flex-wrap:wrap}.controls{width:100%}}
+  @media(max-width:560px){.summary{grid-template-columns:repeat(2,1fr)}.board{grid-template-columns:1fr}.controls>*{flex:1}.date-input{width:100%}.who{display:none}}
+</style>
+</head>
+<body>
+<section class="login" id="loginScreen">
+  <form class="login-card" id="loginForm">
+    <div class="brand"><span class="dot"></span>Nurse WOYZ</div>
+    <h1>Dashboard</h1>
+    <div class="sub">Sign in with the same user account to view the patient dashboard.</div>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" required>
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" required>
+    <button class="btn primary" id="loginBtn">Sign in</button>
+    <div class="error" id="loginError"></div>
+  </form>
+</section>
+<section class="app hidden" id="app">
+  <header class="top">
+    <div class="brand"><span class="dot"></span>Nurse WOYZ</div>
+    <div class="title-block"><h1>Patient Dashboard</h1><div>Prioritized from triage assessments</div></div>
+    <div class="spacer"></div>
+    <div class="controls">
+      <button class="btn" id="prevDateBtn">&lsaquo;</button>
+      <input class="date-input" id="dateInput" type="date" aria-label="Dashboard date">
+      <button class="btn" id="nextDateBtn">&rsaquo;</button>
+      <input class="search" id="searchInput" placeholder="Search patient, UHID, complaint, area">
+    </div>
+    <div class="who" id="userEmail"></div>
+    <button class="btn danger" id="signOutBtn">Sign out</button>
+  </header>
+  <main class="main">
+    <section>
+      <div class="summary" id="summary"></div>
+      <div class="board" id="board"></div>
+    </section>
+    <aside class="detail" id="detail"></aside>
+  </main>
+</section>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
+import { browserLocalPersistence, getAuth, onAuthStateChanged, setPersistence, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
+import { collection, getFirestore, onSnapshot, orderBy, query, setDoc, doc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
+import { firebaseConfig } from './firebase-config.js';
+const fb=initializeApp(firebaseConfig), auth=getAuth(fb), db=getFirestore(fb);
+setPersistence(auth,browserLocalPersistence);
+const $=id=>document.getElementById(id);
+const loginScreen=$('loginScreen'), loginForm=$('loginForm'), loginError=$('loginError'), loginBtn=$('loginBtn'), app=$('app'), board=$('board'), summary=$('summary'), detail=$('detail'), dateInput=$('dateInput'), searchInput=$('searchInput'), userEmail=$('userEmail');
+let currentUser=null, unsub=null, notes=[], selectedDate=new Date(), selectedKey=null;
+function isoDate(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function normalizedUhid(value){const digits=String(value||'').replace(/\D/g,'');return digits.length===9?digits:''}
+function notePatient(n){const p=n.patientData||{};return{name:p.name||n.patientName||'',age:p.age||n.age||'',sex:p.sex||n.sex||'',uhid:p.uhid||n.uhid||''}}
+function patientKey(p,fallbackId=''){const uhid=normalizedUhid(p.uhid);if(uhid)return`uhid:${uhid}`;const parts=[p.name,p.age,p.sex].map(x=>String(x||'').trim().toLowerCase()).filter(x=>x&&x!=='nil');return parts.length?`name:${parts.join('|')}`:`note:${fallbackId}`}
+function patientLabel(p){return p.name&&p.name!=='NIL'?p.name:'Unnamed patient'}
+function patientMeta(p){return[`UHID ${p.uhid||'NIL'}`,p.age&&p.age!=='NIL'?`${p.age} yrs`:'',p.sex&&p.sex!=='NIL'?p.sex:''].filter(Boolean).join(' · ')}
+function clean(v){const s=String(v||'').trim();return s&&s.toUpperCase()!=='NIL'?s:''}
+function escapeRegExp(value){return String(value).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
+function sectionValue(text,label,labels){const source=String(text||'').replace(/\r\n/g,'\n').trim();if(!source)return'';const alternatives=labels.map(escapeRegExp).join('|');const pattern=new RegExp(`(?:^|\\n)\\s*${escapeRegExp(label)}\\s*:?\\s*\\n?([\\s\\S]*?)(?=\\n\\s*(?:${alternatives})\\s*:?\\s*(?:\\n|$)|$)`,'i');return clean(source.match(pattern)?.[1]||'')}
+const TRIAGE_LABELS=['Patient Details and Arrival Date/Time','Mode of Arrival','Presenting Complaint','Symptom Onset and Duration','Primary Assessment: Airway, Breathing, Circulation, Disability, Exposure','Vital Signs','Pain Assessment','Allergies','Current Medications','Relevant Medical History','Focused Assessment and Red Flags','Safety and Infection Risk Screening','Triage Category / Priority','Immediate Nursing Actions and Escalation','Assigned Care Area','Reassessment','Triage Nurse Name'];
+function isTriageNote(n){return n.selectedMode==='Triage Assessment'||/Triage Category\s*\/\s*Priority/i.test(n.transcription||'')||/Mode of Arrival:/i.test(n.transcription||'')}
+function triageFields(note){const text=note?.transcription||'';return Object.fromEntries(TRIAGE_LABELS.map(label=>[label,sectionValue(text,label,TRIAGE_LABELS)]))}
+function priorityFromText(value, fullText=''){const raw=`${value||''} ${fullText||''}`.toLowerCase();if(/\b(red|resus|resuscitation|immediate|category\s*1|cat\s*1|priority\s*1|p\s*1|esi\s*1)\b/.test(raw))return{level:1,label:'Red',name:'Immediate'};if(/\b(orange|emergent|very urgent|category\s*2|cat\s*2|priority\s*2|p\s*2|esi\s*2)\b/.test(raw))return{level:2,label:'Orange',name:'Very urgent'};if(/\b(yellow|urgent|category\s*3|cat\s*3|priority\s*3|p\s*3|esi\s*3)\b/.test(raw))return{level:3,label:'Yellow',name:'Urgent'};if(/\b(green|less urgent|semi urgent|category\s*4|cat\s*4|priority\s*4|p\s*4|esi\s*4)\b/.test(raw))return{level:4,label:'Green',name:'Less urgent'};if(/\b(blue|non urgent|category\s*5|cat\s*5|priority\s*5|p\s*5|esi\s*5)\b/.test(raw))return{level:5,label:'Blue',name:'Non-urgent'};return{level:6,label:'Untriaged',name:'No priority'}}
+function groups(){const map=new Map();notes.filter(n=>n.visitDate===isoDate(selectedDate)&&n.deleted!==true&&n.isDeleted!==true&&!n.isDraft).forEach(n=>{const p=notePatient(n),key=patientKey(p,n.id),g=map.get(key)||{key,patient:p,notes:[]};if(!normalizedUhid(g.patient.uhid)&&normalizedUhid(p.uhid))g.patient=p;g.notes.push(n);map.set(key,g)});return[...map.values()].map(g=>{g.notes.sort((a,b)=>(b.createdAtMs||0)-(a.createdAtMs||0));const triage=g.notes.find(isTriageNote);const fields=triageFields(triage);const priority=priorityFromText(fields['Triage Category / Priority'],triage?.transcription);return{...g,triage,fields,priority,latestAt:g.notes[0]?.createdAtMs||0}}).sort((a,b)=>(a.priority.level-b.priority.level)||((b.triage?.createdAtMs||0)-(a.triage?.createdAtMs||0))||(b.latestAt-a.latestAt))}
+function filteredGroups(){const term=searchInput.value.trim().toLowerCase();return groups().filter(g=>{if(!term)return true;const f=g.fields,p=g.patient;const hay=[p.name,p.uhid,p.age,p.sex,f['Presenting Complaint'],f['Assigned Care Area'],f['Triage Category / Priority'],g.notes.map(n=>n.transcription).join(' ')].join(' ').toLowerCase();return hay.includes(term)})}
+function renderSummary(gs){const counts={1:0,2:0,3:0,4:0,5:0,6:0};gs.forEach(g=>counts[g.priority.level]=(counts[g.priority.level]||0)+1);const items=[['Total',gs.length,''],['Red',counts[1]||0,'p1'],['Orange',counts[2]||0,'p2'],['Yellow',counts[3]||0,'p3'],['Green',counts[4]||0,'p4'],['No priority',counts[6]||0,'p6']];summary.innerHTML=items.map(([label,value,cls])=>`<div class="stat"><div class="stat-label">${esc(label)}</div><div class="stat-value ${esc(cls)}">${esc(value)}</div></div>`).join('')}
+function card(g){const f=g.fields,p=g.patient,triageTime=g.triage?.createdAtLabel||'No triage note';const complaint=f['Presenting Complaint']||'Complaint not entered';const area=f['Assigned Care Area']||'Area not assigned';const vitals=f['Vital Signs']||'Vitals not entered';return`<button class="card p${g.priority.level} ${g.key===selectedKey?'active':''}" data-key="${esc(g.key)}"><div class="card-head"><div style="min-width:0;flex:1"><div class="patient-name">${esc(patientLabel(p))}</div><div class="meta">${esc(patientMeta(p))}</div></div><span class="priority p${g.priority.level}">${esc(g.priority.label)}</span></div><div class="field"><b>Complaint:</b> ${esc(complaint)}</div><div class="field"><b>Vitals:</b> ${esc(vitals)}</div><div class="field"><b>Area:</b> ${esc(area)}</div><div class="tags"><span class="tag">${esc(g.priority.name)}</span><span class="tag">${esc(triageTime)}</span><span class="tag">${g.notes.length} note${g.notes.length===1?'':'s'}</span></div></button>`}
+function renderBoard(){const gs=filteredGroups();renderSummary(gs);board.innerHTML=gs.length?gs.map(card).join(''):`<div class="empty">No patients found for this date.</div>`;if(selectedKey&&!gs.some(g=>g.key===selectedKey))selectedKey=null;renderDetail(gs.find(g=>g.key===selectedKey)||gs[0]||null)}
+function renderDetail(g){if(!g){detail.innerHTML='<h2>No patient selected</h2><div class="sub">Select a patient card to view triage details.</div>';return}selectedKey=g.key;const f=g.fields,p=g.patient;const triageText=g.triage?.transcription||'No triage assessment note found for this patient.';detail.innerHTML=`<h2>${esc(patientLabel(p))}</h2><div class="meta">${esc(patientMeta(p))}</div><div class="detail-section"><div class="detail-title">Priority</div><span class="priority p${g.priority.level}">${esc(g.priority.label)} - ${esc(g.priority.name)}</span></div><div class="detail-section"><div class="detail-title">Triage snapshot</div><div class="detail-text"><b>Arrival:</b> ${esc(f['Patient Details and Arrival Date/Time']||'NIL')}\n<b>Mode:</b> ${esc(f['Mode of Arrival']||'NIL')}\n<b>Complaint:</b> ${esc(f['Presenting Complaint']||'NIL')}\n<b>Onset:</b> ${esc(f['Symptom Onset and Duration']||'NIL')}\n<b>Vitals:</b> ${esc(f['Vital Signs']||'NIL')}\n<b>Pain:</b> ${esc(f['Pain Assessment']||'NIL')}\n<b>Area:</b> ${esc(f['Assigned Care Area']||'NIL')}</div></div><div class="detail-section"><div class="detail-title">Red flags and actions</div><div class="detail-text">${esc(f['Focused Assessment and Red Flags']||'NIL')}\n\n${esc(f['Immediate Nursing Actions and Escalation']||'')}</div></div><div class="detail-section"><div class="detail-title">Saved notes</div><div class="note-list">${g.notes.map(n=>`<div class="note-pill"><b>${esc(n.selectedMode||'Note')}</b><span class="meta">${esc(n.createdAtLabel||'')}</span></div>`).join('')}</div></div><div class="detail-section"><div class="detail-title">Triage note</div><div class="detail-text">${esc(triageText)}</div></div>`}
+function changeDateBy(days){selectedDate.setDate(selectedDate.getDate()+days);dateInput.value=isoDate(selectedDate);selectedKey=null;renderBoard()}
+function subscribe(){if(unsub)unsub();unsub=onSnapshot(query(collection(db,'users',currentUser.uid,'notes'),orderBy('createdAt','desc')),snap=>{notes=snap.docs.map(d=>{const x=d.data();return{...x,id:d.id,createdAtMs:x.createdAt?.toMillis?.()||0}});renderBoard()},e=>{console.error(e);board.innerHTML='<div class="empty">Unable to load dashboard.</div>'})}
+loginForm.addEventListener('submit',async e=>{e.preventDefault();loginError.textContent='';loginBtn.disabled=true;loginBtn.textContent='Signing in...';try{await signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value);$('password').value=''}catch(err){loginError.textContent='Unable to sign in. Check email and password.'}finally{loginBtn.disabled=false;loginBtn.textContent='Sign in'}});
+onAuthStateChanged(auth,async user=>{currentUser=user;if(!user){if(unsub)unsub();app.classList.add('hidden');loginScreen.classList.remove('hidden');return}await setDoc(doc(db,'users',user.uid),{email:user.email||'',emailUpdatedAt:serverTimestamp()},{merge:true});userEmail.textContent=user.email||'';loginScreen.classList.add('hidden');app.classList.remove('hidden');dateInput.value=isoDate(selectedDate);subscribe()});
+$('signOutBtn').onclick=()=>signOut(auth);$('prevDateBtn').onclick=()=>changeDateBy(-1);$('nextDateBtn').onclick=()=>changeDateBy(1);dateInput.onchange=()=>{const[y,m,d]=dateInput.value.split('-').map(Number);if(y&&m&&d)selectedDate=new Date(y,m-1,d);selectedKey=null;renderBoard()};searchInput.oninput=renderBoard;board.addEventListener('click',e=>{const b=e.target.closest('[data-key]');if(!b)return;selectedKey=b.dataset.key;renderBoard()});if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js?v=223',{updateViaCache:'none'}).catch(()=>{});
+</script>
+</body>
+</html>
